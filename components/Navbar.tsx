@@ -1,14 +1,15 @@
 'use client';
 
 import Link from 'next/link';
-import { TrendingUp, Search, User, Home, Trophy, BarChart3 } from 'lucide-react';
+import { TrendingUp, Search, User, Home, Trophy, BarChart3, Wallet } from 'lucide-react';
 import { useState } from 'react';
 
 interface NavbarProps {
   balance?: number;
+  onWalletClick?: () => void;
 }
 
-export default function Navbar({ balance }: NavbarProps) {
+export default function Navbar({ balance, onWalletClick }: NavbarProps) {
   const [searchOpen, setSearchOpen] = useState(false);
 
   const formatSats = (sats: number) => {
@@ -54,12 +55,16 @@ export default function Navbar({ balance }: NavbarProps) {
               <Search size={20} className="text-caribbean-gray-600" />
             </button>
 
-            {/* Balance Display */}
+            {/* Balance Display with Wallet Button */}
             {balance !== undefined && (
-              <div className="hidden sm:flex items-center gap-2 bg-caribbean-sand px-4 py-2 rounded-lg">
-                <span className="text-sm text-caribbean-gray-600">Balance:</span>
-                <span className="font-bold text-caribbean-navy">{formatSats(balance)} sats</span>
-              </div>
+              <button
+                onClick={onWalletClick}
+                className="hidden sm:flex items-center gap-2 bg-caribbean-sand px-4 py-2 rounded-lg hover:bg-caribbean-blue hover:text-white transition-all group"
+              >
+                <Wallet size={18} className="text-caribbean-blue group-hover:text-white" />
+                <span className="text-sm text-caribbean-gray-600 group-hover:text-white">Balance:</span>
+                <span className="font-bold text-caribbean-navy group-hover:text-white">{formatSats(balance)} sats</span>
+              </button>
             )}
 
             {/* Navigation Links */}

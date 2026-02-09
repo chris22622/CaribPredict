@@ -18,6 +18,26 @@ export interface GeneratedQuestion {
 }
 
 /**
+ * Get a date string N days from now in YYYY-MM-DD format
+ */
+function getDateInDays(days: number): string {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  return date.toISOString().split('T')[0];
+}
+
+/**
+ * Validate that a close_date is within 1-7 days from now
+ */
+function isValidShortTermDate(dateString: string): boolean {
+  const closeDate = new Date(dateString);
+  const today = new Date();
+  const diffTime = closeDate.getTime() - today.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  return diffDays >= 1 && diffDays <= 7;
+}
+
+/**
  * Generate prediction market questions from news articles using Claude
  * @param country - The Caribbean country
  * @param articles - Array of news articles
@@ -56,22 +76,32 @@ ${article.age ? `Age: ${article.age}` : ''}
     })
     .join('\n---\n');
 
-  const prompt = `You are a prediction market question generator for CaribPredict, a Caribbean-focused prediction market platform.
+  const prompt = `You are a prediction market question generator for CaribPredict, a Caribbean-focused prediction market platform similar to Polymarket.
 
 Based on these recent news articles from ${country}:
 
 ${articlesText}
 
-Generate 3-5 high-quality prediction market questions that:
+Generate 5-8 EXCITING, BUZZY prediction market questions that:
 
-1. Are binary (Yes/No) or multiple choice (3-5 options)
-2. Have clear, verifiable resolution criteria
-3. Are interesting and relevant to Caribbean users
-4. Have a specific close date (30-180 days from now, based on the event timeline)
-5. Avoid sensitive topics (violence, disasters, personal attacks, death, medical conditions)
-6. Focus on positive topics: sports, politics (elections, policies), economics, technology, entertainment, culture
+1. ⚡ MUST resolve within 1-7 DAYS ONLY (this is critical - NO long-term questions!)
+2. 🔥 Focus on IMMEDIATE events happening THIS WEEK or NEXT FEW DAYS
+3. Are binary (Yes/No) or multiple choice (3-5 options)
+4. Have clear, verifiable resolution criteria
+5. Are EXCITING topics people want to bet on (sports matches, weather, crypto prices, viral moments)
+6. Use specific days: "by Friday", "this Saturday", "tomorrow", "by end of week"
 7. Must be resolvable with publicly available information
-8. Should be answerable with certainty when the time comes
+8. Avoid sensitive topics (violence, disasters, personal attacks, death, medical conditions)
+
+QUESTION INSPIRATION (adapt to Caribbean context):
+- Sports: "Will Trinidad & Tobago's cricket team win their match this Saturday?"
+- Weather: "Will Kingston get more than 2 inches of rain by Friday?"
+- Crypto: "Will Bitcoin close above $95k this Sunday?"
+- Politics: "Will Jamaica's PM make a statement about the new policy this week?"
+- Pop Culture: "Will [Caribbean artist]'s new song hit 1M views by end of week?"
+- Breaking News: "Will the hurricane warning be upgraded by Thursday?"
+- Business: "Will [Caribbean company] stock rise 5% by Friday close?"
+- Social: "Will [trending topic] remain trending in ${country} tomorrow?"
 
 IMPORTANT: Output ONLY valid JSON in the exact format below. Do not include any text before or after the JSON.
 
@@ -79,25 +109,27 @@ Output format:
 {
   "questions": [
     {
-      "question": "Will Jamaica's inflation rate drop below 5% by June 2026?",
-      "description": "Based on Bank of Jamaica forecasts and recent economic trends showing declining inflation...",
-      "category": "Economics",
+      "question": "Will Jamaica's national football team win against Haiti this Saturday?",
+      "description": "Jamaica faces Haiti in a crucial CONCACAF match this Saturday at 7 PM. Recent form shows Jamaica won 2 of last 3 matches...",
+      "category": "Sports",
       "country": "${country}",
-      "close_date": "2026-06-30",
+      "close_date": "${getDateInDays(3)}",
       "options": ["Yes", "No"],
-      "resolution_criteria": "Resolved based on official Bank of Jamaica CPI data published in July 2026. The question resolves to 'Yes' if the official inflation rate is below 5.0%, otherwise 'No'.",
+      "resolution_criteria": "Resolved based on official match result published by CONCACAF immediately after the final whistle. 'Yes' if Jamaica wins, 'No' if draw or loss.",
       "liquidity_parameter": 100
     }
   ]
 }
 
-Categories to choose from: Politics, Sports, Economics, Technology, Entertainment, Culture, Education, Infrastructure
+Categories to choose from: Sports, Politics, Economics, Technology, Entertainment, Culture, Crypto, Weather, Breaking News, Business, Social, Pop Culture
 
 Remember:
 - close_date must be in YYYY-MM-DD format
-- close_date should be 30-180 days from today (${new Date().toISOString().split('T')[0]})
+- close_date MUST be 1-7 days from today (${new Date().toISOString().split('T')[0]})
 - liquidity_parameter is always 100
 - resolution_criteria must be specific and verifiable
+- Make questions BUZZY and EXCITING like Polymarket
+- Focus on IMMEDIATE events only
 - Output ONLY the JSON, no other text`;
 
   try {
@@ -137,9 +169,9 @@ Remember:
       throw new Error('Invalid response format: missing questions array');
     }
 
-    // Validate each question has required fields
+    // Validate each question has required fields AND is short-term (1-7 days)
     const validQuestions = parsedResponse.questions.filter(q => {
-      return (
+      const hasRequiredFields = (
         q.question &&
         q.description &&
         q.category &&
@@ -151,6 +183,19 @@ Remember:
         q.resolution_criteria &&
         typeof q.liquidity_parameter === 'number'
       );
+
+      if (!hasRequiredFields) {
+        console.log(`Question rejected (missing fields): ${q.question}`);
+        return false;
+      }
+
+      // CRITICAL: Enforce 1-7 day resolution window
+      if (!isValidShortTermDate(q.close_date)) {
+        console.log(`Question rejected (date not 1-7 days): ${q.question} (close_date: ${q.close_date})`);
+        return false;
+      }
+
+      return true;
     });
 
     console.log(`Generated ${validQuestions.length} valid questions for ${country}`);
