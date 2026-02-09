@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://caribpredict.com/sitemap.xml
