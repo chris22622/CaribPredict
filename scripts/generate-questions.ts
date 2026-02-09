@@ -44,7 +44,7 @@ async function main() {
   const targetCountry = args[0];
 
   // Validate country if provided
-  if (targetCountry && !CARICOM_COUNTRIES_FOR_NEWS.includes(targetCountry)) {
+  if (targetCountry && !CARICOM_COUNTRIES_FOR_NEWS.includes(targetCountry as any)) {
     console.error(`Error: Invalid country "${targetCountry}"`);
     console.log('Valid countries:', CARICOM_COUNTRIES_FOR_NEWS.join(', '));
     process.exit(1);
