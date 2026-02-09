@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
-import Navbar from '@/components/Navbar';
+import LayoutClient from './layout-client';
 import { Toaster } from 'sonner';
 
 export const metadata: Metadata = {
@@ -26,16 +26,16 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="bg-caribbean-sand">
-        {/* Navigation */}
-        <Navbar />
-
         {/* Toast Notifications */}
         <Toaster position="top-right" richColors />
 
-        {/* Main Content */}
-        <main className="container mx-auto px-4 py-8 min-h-screen">
-          {children}
-        </main>
+        {/* Auth-aware Layout */}
+        <LayoutClient>
+          {/* Main Content */}
+          <main className="container mx-auto px-4 py-8 min-h-screen">
+            {children}
+          </main>
+        </LayoutClient>
 
         {/* Footer */}
         <footer className="bg-white border-t border-caribbean-gray-200 py-8 mt-16">
