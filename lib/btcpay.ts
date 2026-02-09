@@ -158,9 +158,40 @@ export class BTCPayClient {
   }
 }
 
-// Singleton instance
-export const btcpayClient = new BTCPayClient({
-  host: process.env.BTCPAY_HOST || '',
-  apiKey: process.env.BTCPAY_API_KEY || '',
-  storeId: process.env.BTCPAY_STORE_ID || ''
-});
+// Singleton instance - lazy loaded to avoid build-time errors
+let _btcpayClient: BTCPayClient | null = null;
+
+export function getBTCPayClient(): BTCPayClient {
+  if (!_btcpayClient) {
+    const host = process.env.BTCPAY_HOST;
+    const apiKey = process.env.BTCPAY_API_KEY;
+    const storeId = process.env.BTCPAY_STORE_ID;
+
+    if (!host || !apiKey || !storeId) {
+      throw new Error('BTCPay Server configuration is incomplete. Please set BTCPAY_HOST, BTCPAY_API_KEY, and BTCPAY_STORE_ID environment variables.');
+    }
+
+    _btcpayClient = new BTCPayClient({
+      host,
+      apiKey,
+      storeId
+    });
+  }
+
+  return _btcpayClient;
+}
+
+// Backward compatibility export
+export const btcpayClient = {
+  get instance() {
+    return getBTCPayClient();
+  },
+  createInvoice: (...args: Parameters<BTCPayClient['createInvoice']>) =>
+    getBTCPayClient().createInvoice(...args),
+  getInvoice: (...args: Parameters<BTCPayClient['getInvoice']>) =>
+    getBTCPayClient().getInvoice(...args),
+  createPayout: (...args: Parameters<BTCPayClient['createPayout']>) =>
+    getBTCPayClient().createPayout(...args),
+  getPayout: (...args: Parameters<BTCPayClient['getPayout']>) =>
+    getBTCPayClient().getPayout(...args),
+};
