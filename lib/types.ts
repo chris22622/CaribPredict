@@ -10,33 +10,32 @@ export interface Market {
   id: string;
   question: string;
   description?: string;
-  country: string;
+  country_filter: string;
   category: string;
   close_date: string;
-  resolve_date?: string;
-  status: 'active' | 'closed' | 'resolved';
-  total_volume: number;
+  resolved: boolean;
+  resolution?: string;
   liquidity_parameter: number;
   created_at: string;
-  resolved_outcome?: number;
+  updated_at: string;
 }
 
 export interface MarketOption {
   id: string;
   market_id: string;
-  option_text: string;
-  option_index: number;
-  current_shares: number;
-  current_probability: number;
+  label: string;
+  probability: number;
+  total_shares: number;
+  created_at: string;
 }
 
 export interface Position {
   id: string;
   user_id: string;
   market_id: string;
-  option_index: number;
+  option_id: string;
   shares: number;
-  average_price: number;
+  avg_price: number;
   created_at: string;
   updated_at: string;
 }
@@ -45,22 +44,57 @@ export interface Trade {
   id: string;
   user_id: string;
   market_id: string;
-  option_index: number;
-  trade_type: 'buy' | 'sell';
+  option_id: string;
   shares: number;
   price: number;
-  cost_satoshis: number;
+  is_buy: boolean;
+  total_cost: number;
   created_at: string;
 }
 
 export interface Transaction {
   id: string;
   user_id: string;
-  transaction_type: 'deposit' | 'withdrawal' | 'trade' | 'payout';
+  type: 'deposit' | 'withdrawal' | 'trade' | 'payout' | 'admin_credit';
   amount_satoshis: number;
-  reference_id?: string;
-  status: 'pending' | 'completed' | 'failed';
+  btcpay_invoice_id?: string;
+  status: 'pending' | 'confirmed' | 'failed';
+  metadata?: any;
   created_at: string;
+}
+
+export interface QuestionQueue {
+  id: string;
+  brave_search_query?: string;
+  country: string;
+  raw_news?: any; // JSON of news articles
+  claude_prompt?: string;
+  generated_questions?: any; // JSON array of questions
+  status: 'pending' | 'approved' | 'rejected';
+  approved_by?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NewsArticle {
+  title: string;
+  description: string;
+  url: string;
+  age?: string;
+  thumbnail?: {
+    src: string;
+  };
+}
+
+export interface GeneratedQuestion {
+  question: string;
+  description: string;
+  category: string;
+  country: string;
+  close_date: string;
+  options: string[];
+  resolution_criteria: string;
+  liquidity_parameter: number;
 }
 
 export const CARICOM_COUNTRIES = [
@@ -83,3 +117,8 @@ export const CARICOM_COUNTRIES = [
 ] as const;
 
 export type CaricomCountry = typeof CARICOM_COUNTRIES[number];
+
+// CARICOM countries for news search (excluding "All CARICOM")
+export const CARICOM_COUNTRIES_FOR_NEWS = CARICOM_COUNTRIES.filter(
+  c => c !== 'All CARICOM'
+);

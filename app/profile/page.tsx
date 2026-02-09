@@ -64,13 +64,13 @@ export default function ProfilePage() {
 
         const marketsMap = new Map(marketsData?.map((m) => [m.id, m]));
         const optionsMap = new Map(
-          optionsData?.map((o) => [`${o.market_id}_${o.option_index}`, o])
+          optionsData?.map((o) => [o.id, o])
         );
 
         const enrichedPositions = positionsData.map((pos: Position) => ({
           ...pos,
           market: marketsMap.get(pos.market_id),
-          option: optionsMap.get(`${pos.market_id}_${pos.option_index}`),
+          option: optionsMap.get(pos.option_id),
         }));
 
         setPositions(enrichedPositions);
@@ -102,13 +102,13 @@ export default function ProfilePage() {
 
         const tradeMarketsMap = new Map(tradeMarketsData?.map((m) => [m.id, m]));
         const tradeOptionsMap = new Map(
-          tradeOptionsData?.map((o) => [`${o.market_id}_${o.option_index}`, o])
+          tradeOptionsData?.map((o) => [o.id, o])
         );
 
         const enrichedTrades = tradesData.map((trade: Trade) => ({
           ...trade,
           market: tradeMarketsMap.get(trade.market_id),
-          option: tradeOptionsMap.get(`${trade.market_id}_${trade.option_index}`),
+          option: tradeOptionsMap.get(trade.option_id),
         }));
 
         setRecentTrades(enrichedTrades);
@@ -156,8 +156,8 @@ export default function ProfilePage() {
             {positions.map((position) => {
               if (!position.market || !position.option) return null;
 
-              const currentValue = position.shares * position.option.current_probability;
-              const costBasis = position.shares * position.average_price;
+              const currentValue = position.shares * position.option.probability;
+              const costBasis = position.shares * position.avg_price;
               const profitLoss = currentValue - costBasis;
               const profitLossPercent = ((profitLoss / costBasis) * 100).toFixed(1);
 
@@ -173,7 +173,7 @@ export default function ProfilePage() {
                         {position.market.question}
                       </h3>
                       <div className="text-sm text-gray-600">
-                        {position.option.option_text}
+                        {position.option.label}
                       </div>
                     </div>
                     <div
@@ -187,10 +187,10 @@ export default function ProfilePage() {
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">
-                      {position.shares.toFixed(2)} shares @ {formatProbability(position.average_price)}
+                      {position.shares.toFixed(2)} shares @ {formatProbability(position.avg_price)}
                     </span>
                     <span className="text-gray-600">
-                      Current: {formatProbability(position.option.current_probability)}
+                      Current: {formatProbability(position.option.probability)}
                     </span>
                   </div>
                 </Link>
@@ -218,21 +218,21 @@ export default function ProfilePage() {
                         {trade.market.question}
                       </div>
                       <div className="text-xs text-gray-600 mt-1">
-                        {trade.option.option_text}
+                        {trade.option.label}
                       </div>
                     </div>
                     <div className="flex items-center gap-2 ml-4">
-                      {trade.trade_type === 'buy' ? (
+                      {trade.is_buy ? (
                         <TrendingUp size={16} className="text-caribbean-green" />
                       ) : (
                         <TrendingDown size={16} className="text-caribbean-coral" />
                       )}
                       <span
                         className={`text-sm font-bold ${
-                          trade.trade_type === 'buy' ? 'text-caribbean-green' : 'text-caribbean-coral'
+                          trade.is_buy ? 'text-caribbean-green' : 'text-caribbean-coral'
                         }`}
                       >
-                        {trade.trade_type.toUpperCase()}
+                        {trade.is_buy ? 'BUY' : 'SELL'}
                       </span>
                     </div>
                   </div>
@@ -240,7 +240,7 @@ export default function ProfilePage() {
                     <span>
                       {trade.shares.toFixed(2)} shares @ {formatProbability(trade.price)}
                     </span>
-                    <span>{formatSatoshis(trade.cost_satoshis)}</span>
+                    <span>{formatSatoshis(trade.total_cost)}</span>
                   </div>
                   <div className="flex items-center gap-1 text-xs text-gray-400 mt-1">
                     <Clock size={12} />

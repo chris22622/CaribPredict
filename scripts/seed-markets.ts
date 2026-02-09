@@ -74,11 +74,10 @@ async function seedMarkets() {
         .insert({
           question: marketData.question,
           description: marketData.description,
-          country: marketData.country,
+          country_filter: marketData.country,
           category: marketData.category,
           close_date: marketData.close_date,
-          status: 'active',
-          total_volume: 0,
+          resolved: false,
           liquidity_parameter: marketData.liquidity_parameter,
         })
         .select()
@@ -95,10 +94,9 @@ async function seedMarkets() {
       // Create options
       const optionsToInsert = marketData.options.map((optionText, index) => ({
         market_id: market.id,
-        option_text: optionText,
-        option_index: index,
-        current_shares: 0,
-        current_probability: 1 / marketData.options.length,
+        label: optionText,
+        probability: (1 / marketData.options.length).toFixed(4),
+        total_shares: 0,
       }));
 
       const { error: optionsError } = await supabase
