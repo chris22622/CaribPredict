@@ -5,19 +5,23 @@ import { supabase } from '@/lib/supabase';
 import { Market, MarketOption, CaricomCountry } from '@/lib/types';
 import MarketCard from '@/components/MarketCard';
 import CountryFilter from '@/components/CountryFilter';
+import PlatformStats from '@/components/PlatformStats';
 import { TrendingUp, Flame } from 'lucide-react';
+
+const CATEGORIES = ['All', 'Politics', 'Sports', 'Economics', 'Entertainment', 'Technology', 'Culture'];
 
 export default function HomePage() {
   const [markets, setMarkets] = useState<Market[]>([]);
   const [marketOptions, setMarketOptions] = useState<{ [marketId: string]: MarketOption[] }>({});
   const [selectedCountry, setSelectedCountry] = useState<CaricomCountry>('All CARICOM');
+  const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [activeTab, setActiveTab] = useState<'hot' | 'all'>('hot');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
     loadMarkets();
-  }, [selectedCountry]);
+  }, [selectedCountry, selectedCategory]);
 
   const loadMarkets = async () => {
     setLoading(true);
@@ -34,6 +38,11 @@ export default function HomePage() {
       // Filter by country if not "All CARICOM"
       if (selectedCountry !== 'All CARICOM') {
         query = query.eq('country_filter', selectedCountry);
+      }
+
+      // Filter by category if not "All"
+      if (selectedCategory !== 'All') {
+        query = query.eq('category', selectedCategory);
       }
 
       const { data: marketsData, error: marketsError } = await query;
@@ -87,36 +96,58 @@ export default function HomePage() {
         </p>
       </div>
 
+      {/* Platform Stats */}
+      <PlatformStats />
+
       {/* Tabs & Filters */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-        {/* Tabs */}
-        <div className="flex gap-2">
-          <button
-            onClick={() => setActiveTab('hot')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
-              activeTab === 'hot'
-                ? 'bg-caribbean-blue text-white'
-                : 'bg-white text-caribbean-gray-700 border border-caribbean-gray-200 hover:bg-caribbean-gray-50'
-            }`}
-          >
-            <Flame size={18} />
-            Hot Markets
-          </button>
-          <button
-            onClick={() => setActiveTab('all')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
-              activeTab === 'all'
-                ? 'bg-caribbean-blue text-white'
-                : 'bg-white text-caribbean-gray-700 border border-caribbean-gray-200 hover:bg-caribbean-gray-50'
-            }`}
-          >
-            <TrendingUp size={18} />
-            All Markets
-          </button>
+      <div className="space-y-4 mb-6">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          {/* Tabs */}
+          <div className="flex gap-2">
+            <button
+              onClick={() => setActiveTab('hot')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
+                activeTab === 'hot'
+                  ? 'bg-caribbean-blue text-white'
+                  : 'bg-white text-caribbean-gray-700 border border-caribbean-gray-200 hover:bg-caribbean-gray-50'
+              }`}
+            >
+              <Flame size={18} />
+              Hot Markets
+            </button>
+            <button
+              onClick={() => setActiveTab('all')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
+                activeTab === 'all'
+                  ? 'bg-caribbean-blue text-white'
+                  : 'bg-white text-caribbean-gray-700 border border-caribbean-gray-200 hover:bg-caribbean-gray-50'
+              }`}
+            >
+              <TrendingUp size={18} />
+              All Markets
+            </button>
+          </div>
+
+          {/* Country Filter */}
+          <CountryFilter selected={selectedCountry} onChange={setSelectedCountry} />
         </div>
 
-        {/* Country Filter */}
-        <CountryFilter selected={selectedCountry} onChange={setSelectedCountry} />
+        {/* Category Filter */}
+        <div className="flex gap-2 overflow-x-auto pb-2">
+          {CATEGORIES.map((category) => (
+            <button
+              key={category}
+              onClick={() => setSelectedCategory(category)}
+              className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-all ${
+                selectedCategory === category
+                  ? 'bg-caribbean-teal text-white'
+                  : 'bg-white text-caribbean-gray-700 border border-caribbean-gray-200 hover:bg-caribbean-gray-50'
+              }`}
+            >
+              {category}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Loading State */}

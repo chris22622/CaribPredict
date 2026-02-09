@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Market, MarketOption } from '@/lib/types';
 import { calculateBuyCost, calculateSellPayout, formatSatoshis, formatProbability, MarketState } from '@/lib/amm';
 import { TrendingUp, TrendingDown, Wallet } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface TradingInterfaceProps {
   market: Market;
@@ -77,11 +78,13 @@ export default function TradingInterface({
     // Validation
     if (tradeType === 'buy' && quote.cost > userBalance) {
       setError('Insufficient balance');
+      toast.error('Insufficient balance');
       return;
     }
 
     if (tradeType === 'sell' && sharesNum > userShares) {
       setError(`You only have ${userShares.toFixed(2)} shares`);
+      toast.error(`You only have ${userShares.toFixed(2)} shares`);
       return;
     }
 
@@ -90,9 +93,14 @@ export default function TradingInterface({
 
     try {
       await onTrade(selectedOptionId, tradeType, sharesNum, quote.cost);
+      toast.success(
+        `Successfully ${tradeType === 'buy' ? 'bought' : 'sold'} ${sharesNum} shares for ${formatSatoshis(quote.cost)}`
+      );
       setShares('10');
     } catch (err: any) {
-      setError(err.message || 'Trade failed');
+      const errorMsg = err.message || 'Trade failed';
+      setError(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setIsTrading(false);
     }

@@ -10,9 +10,10 @@ import ProbabilityBar from './ProbabilityBar';
 interface MarketCardProps {
   market: Market;
   options: MarketOption[];
+  compact?: boolean;
 }
 
-export default function MarketCard({ market, options }: MarketCardProps) {
+export default function MarketCard({ market, options, compact = false }: MarketCardProps) {
   const closeDate = new Date(market.close_date);
   const isClosingSoon = closeDate.getTime() - Date.now() < 24 * 60 * 60 * 1000; // 24 hours
 
@@ -23,7 +24,7 @@ export default function MarketCard({ market, options }: MarketCardProps) {
 
   return (
     <Link href={`/market/${market.id}`}>
-      <div className="bg-white rounded-xl shadow-card hover:shadow-card-hover transition-all duration-200 p-5 cursor-pointer border border-caribbean-gray-200 hover:border-caribbean-blue group">
+      <div className={`bg-white rounded-xl shadow-card hover:shadow-card-hover transition-all duration-200 cursor-pointer border border-caribbean-gray-200 hover:border-caribbean-blue group ${compact ? 'p-3' : 'p-5'}`}>
         {/* Header: Category Badge */}
         <div className="flex items-start justify-between mb-3">
           <CategoryBadge category={market.category} />

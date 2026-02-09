@@ -62,7 +62,7 @@ Based on these recent news articles from ${country}:
 
 ${articlesText}
 
-Generate 2-3 high-quality prediction market questions that:
+Generate 3-5 high-quality prediction market questions that:
 
 1. Are binary (Yes/No) or multiple choice (3-5 options)
 2. Have clear, verifiable resolution criteria

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import Navbar from '@/components/Navbar';
+import { Toaster } from 'sonner';
 
 export const metadata: Metadata = {
   title: 'CaribPredict - Caribbean Prediction Markets',
@@ -27,6 +28,9 @@ export default function RootLayout({
       <body className="bg-caribbean-sand">
         {/* Navigation */}
         <Navbar />
+
+        {/* Toast Notifications */}
+        <Toaster position="top-right" richColors />
 
         {/* Main Content */}
         <main className="container mx-auto px-4 py-8 min-h-screen">

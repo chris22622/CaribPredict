@@ -5,6 +5,9 @@ import { useParams } from 'next/navigation';
 import { supabase, getOrCreateUser } from '@/lib/supabase';
 import { Market, MarketOption, User, Position } from '@/lib/types';
 import TradingInterface from '@/components/TradingInterface';
+import ActivityFeed from '@/components/ActivityFeed';
+import MarketChart from '@/components/MarketChart';
+import MarketStats from '@/components/MarketStats';
 import { ArrowLeft, Calendar, MapPin, Clock, Info } from 'lucide-react';
 import { formatProbability } from '@/lib/amm';
 import Link from 'next/link';
@@ -215,6 +218,9 @@ export default function MarketPage() {
             </div>
           </div>
 
+          {/* Probability Chart */}
+          <MarketChart options={options} />
+
           {/* Resolution Criteria */}
           {market.description && (
             <div className="bg-white rounded-xl border border-caribbean-gray-200 p-6">
@@ -228,6 +234,9 @@ export default function MarketPage() {
               </p>
             </div>
           )}
+
+          {/* Activity Feed */}
+          <ActivityFeed marketId={marketId} options={options} />
 
           {/* Your Positions (mobile view) */}
           {Object.keys(positions).length > 0 && (
@@ -264,6 +273,9 @@ export default function MarketPage() {
             userPositions={positions}
             onTrade={handleTrade}
           />
+
+          {/* Market Stats */}
+          <MarketStats marketId={marketId} />
 
           {/* Your Positions (desktop view) */}
           <div className="hidden lg:block bg-white rounded-xl border border-caribbean-gray-200 p-6">

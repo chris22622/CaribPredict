@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { TrendingUp, Search, User, Home } from 'lucide-react';
+import { TrendingUp, Search, User, Home, Trophy, BarChart3 } from 'lucide-react';
 import { useState } from 'react';
 
 interface NavbarProps {
@@ -69,6 +69,20 @@ export default function Navbar({ balance }: NavbarProps) {
               title="Home"
             >
               <Home size={20} className="text-caribbean-gray-600" />
+            </Link>
+            <Link
+              href="/stats"
+              className="p-2 hover:bg-caribbean-gray-100 rounded-lg transition-colors"
+              title="Platform Stats"
+            >
+              <BarChart3 size={20} className="text-caribbean-gray-600" />
+            </Link>
+            <Link
+              href="/leaderboard"
+              className="p-2 hover:bg-caribbean-gray-100 rounded-lg transition-colors"
+              title="Leaderboard"
+            >
+              <Trophy size={20} className="text-caribbean-gray-600" />
             </Link>
             <Link
               href="/profile"
