@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/app/layout-client';
 import { useRouter } from 'next/navigation';
-import { Settings, Users, BarChart3, CheckCircle, XCircle, Clock, TrendingUp, Plus, AlertCircle, RefreshCw } from 'lucide-react';
+import { Settings, Users, BarChart3, CheckCircle, XCircle, Clock, TrendingUp, Plus, AlertCircle, RefreshCw, Trash2 } from 'lucide-react';
+import { CARICOM_COUNTRIES } from '@/lib/types';
 import { formatSatoshis } from '@/lib/amm';
 import { toast } from 'sonner';
 import Link from 'next/link';
@@ -28,7 +29,16 @@ export default function AdminPage() {
   const [stats, setStats] = useState({ totalMarkets: 0, activeMarkets: 0, resolvedMarkets: 0, totalUsers: 0, totalTrades: 0, totalVolume: 0 });
   const [loading, setLoading] = useState(true);
   const [resolveModal, setResolveModal] = useState<{ market: MarketWithOptions; optionId: string } | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'markets' | 'resolve' | 'questions'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'markets' | 'resolve' | 'questions' | 'create'>('overview');
+  const [newMarket, setNewMarket] = useState({
+    question: '',
+    description: '',
+    category: 'Politics',
+    country_filter: 'All CARICOM',
+    close_date: '',
+    options: ['Yes', 'No'],
+  });
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     loadAdmin();
@@ -154,6 +164,39 @@ export default function AdminPage() {
     }
   };
 
+  const createNewMarket = async () => {
+    if (!newMarket.question || !newMarket.close_date || newMarket.options.filter(o => o.trim()).length < 2) {
+      toast.error('Please fill in question, close date, and at least 2 options');
+      return;
+    }
+    setCreating(true);
+    try {
+      const response = await fetch('/api/markets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          question: newMarket.question,
+          description: newMarket.description,
+          category: newMarket.category,
+          country_filter: newMarket.country_filter,
+          close_date: newMarket.close_date,
+          options: newMarket.options.filter(o => o.trim()),
+          liquidity_parameter: 100,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to create market');
+      toast.success('Market created successfully!');
+      setNewMarket({ question: '', description: '', category: 'Politics', country_filter: 'All CARICOM', close_date: '', options: ['Yes', 'No'] });
+      setActiveTab('overview');
+      loadAdmin();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to create market');
+    } finally {
+      setCreating(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12 flex items-center justify-center">
@@ -213,6 +256,7 @@ export default function AdminPage() {
           { key: 'overview', label: 'Overview' },
           { key: 'resolve', label: `Resolve (${unresolvedExpired.length})` },
           { key: 'markets', label: 'All Markets' },
+          { key: 'create', label: '+ Create' },
           { key: 'questions', label: 'Questions' },
         ] as const).map((tab) => (
           <button
@@ -317,6 +361,113 @@ export default function AdminPage() {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'create' && (
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Create New Market</h3>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Question *</label>
+              <input
+                type="text"
+                value={newMarket.question}
+                onChange={(e) => setNewMarket({ ...newMarket, question: e.target.value })}
+                placeholder="Will Jamaica's GDP grow by more than 3% in 2026?"
+                className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+              <textarea
+                value={newMarket.description}
+                onChange={(e) => setNewMarket({ ...newMarket, description: e.target.value })}
+                placeholder="Provide context, resolution criteria, and sources..."
+                rows={3}
+                className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 resize-none"
+              />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Category *</label>
+                <select
+                  value={newMarket.category}
+                  onChange={(e) => setNewMarket({ ...newMarket, category: e.target.value })}
+                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                >
+                  {['Politics', 'Sports', 'Economics', 'Entertainment', 'Technology', 'Culture', 'Crypto', 'Weather'].map(c => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Country *</label>
+                <select
+                  value={newMarket.country_filter}
+                  onChange={(e) => setNewMarket({ ...newMarket, country_filter: e.target.value })}
+                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                >
+                  {(CARICOM_COUNTRIES as readonly string[]).map(c => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Close Date *</label>
+                <input
+                  type="date"
+                  value={newMarket.close_date}
+                  onChange={(e) => setNewMarket({ ...newMarket, close_date: e.target.value })}
+                  min={new Date().toISOString().split('T')[0]}
+                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Options *</label>
+              <div className="space-y-2">
+                {newMarket.options.map((option, idx) => (
+                  <div key={idx} className="flex gap-2">
+                    <input
+                      type="text"
+                      value={option}
+                      onChange={(e) => {
+                        const updated = [...newMarket.options];
+                        updated[idx] = e.target.value;
+                        setNewMarket({ ...newMarket, options: updated });
+                      }}
+                      placeholder={`Option ${idx + 1}`}
+                      className="flex-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    />
+                    {newMarket.options.length > 2 && (
+                      <button
+                        onClick={() => setNewMarket({ ...newMarket, options: newMarket.options.filter((_, i) => i !== idx) })}
+                        className="px-2 py-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {newMarket.options.length < 5 && (
+                <button
+                  onClick={() => setNewMarket({ ...newMarket, options: [...newMarket.options, ''] })}
+                  className="mt-2 inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800"
+                >
+                  <Plus size={14} /> Add Option
+                </button>
+              )}
+            </div>
+            <button
+              onClick={createNewMarket}
+              disabled={creating}
+              className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg text-sm font-medium transition-colors"
+            >
+              {creating ? 'Creating...' : 'Create Market'}
+            </button>
           </div>
         </div>
       )}
