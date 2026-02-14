@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { Market, MarketOption, CaricomCountry, CARICOM_COUNTRIES } from '@/lib/types';
 import MarketCard from '@/components/MarketCard';
@@ -9,8 +10,22 @@ import { TrendingUp, Flame, Globe, ChevronDown, Search, Zap, BarChart3, Bitcoin,
 const CATEGORIES = ['All', 'Politics', 'Sports', 'Economics', 'Entertainment', 'Technology', 'Culture', 'Crypto', 'Weather'];
 
 export default function HomePage() {
+  return (
+    <Suspense fallback={
+      <div className="flex flex-col items-center py-20">
+        <div className="w-8 h-8 border-2 border-gray-200 border-t-gray-900 rounded-full animate-spin mb-3" />
+        <p className="text-sm text-gray-400">Loading markets...</p>
+      </div>
+    }>
+      <HomePageInner />
+    </Suspense>
+  );
+}
+
+function HomePageInner() {
   const [markets, setMarkets] = useState<Market[]>([]);
   const [marketOptions, setMarketOptions] = useState<{ [marketId: string]: MarketOption[] }>({});
+  const searchParams = useSearchParams();
   const [selectedCountry, setSelectedCountry] = useState<string>('All CARICOM');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState('');
@@ -18,6 +33,16 @@ export default function HomePage() {
   const [error, setError] = useState('');
   const [countryDropdownOpen, setCountryDropdownOpen] = useState(false);
   const [stats, setStats] = useState({ markets: 0, traders: 0, volume: 0 });
+
+  // Read search query from URL params (from navbar search)
+  useEffect(() => {
+    const urlSearch = searchParams?.get('search');
+    const urlCategory = searchParams?.get('category');
+    const urlCountry = searchParams?.get('country');
+    if (urlSearch) setSearchQuery(urlSearch);
+    if (urlCategory) setSelectedCategory(urlCategory);
+    if (urlCountry) setSelectedCountry(urlCountry);
+  }, [searchParams]);
 
   useEffect(() => {
     loadMarkets();
@@ -116,23 +141,38 @@ export default function HomePage() {
           </p>
         </div>
 
-        {/* Stats Bar */}
-        <div className="flex items-center justify-center gap-6 sm:gap-10 mb-8">
-          <div className="text-center">
-            <div className="text-xl sm:text-2xl font-bold text-gray-900">{stats.markets}</div>
-            <div className="text-xs text-gray-500">Active Markets</div>
+        {/* Stats Bar - only show if there are meaningful stats */}
+        {stats.markets > 0 && (
+          <div className="flex items-center justify-center gap-6 sm:gap-10 mb-8">
+            <div className="text-center">
+              <div className="text-xl sm:text-2xl font-bold text-gray-900">{stats.markets}</div>
+              <div className="text-xs text-gray-500">Active Markets</div>
+            </div>
+            <div className="w-px h-8 bg-gray-200" />
+            <div className="text-center">
+              <div className="text-xl sm:text-2xl font-bold text-gray-900">15</div>
+              <div className="text-xs text-gray-500">CARICOM Nations</div>
+            </div>
+            {stats.traders > 0 && (
+              <>
+                <div className="w-px h-8 bg-gray-200" />
+                <div className="text-center">
+                  <div className="text-xl sm:text-2xl font-bold text-gray-900">{stats.traders}</div>
+                  <div className="text-xs text-gray-500">Traders</div>
+                </div>
+              </>
+            )}
+            {stats.volume > 0 && (
+              <>
+                <div className="w-px h-8 bg-gray-200" />
+                <div className="text-center">
+                  <div className="text-xl sm:text-2xl font-bold text-gray-900">{formatVolume(stats.volume)}</div>
+                  <div className="text-xs text-gray-500">Volume (sats)</div>
+                </div>
+              </>
+            )}
           </div>
-          <div className="w-px h-8 bg-gray-200" />
-          <div className="text-center">
-            <div className="text-xl sm:text-2xl font-bold text-gray-900">{stats.traders}</div>
-            <div className="text-xs text-gray-500">Traders</div>
-          </div>
-          <div className="w-px h-8 bg-gray-200" />
-          <div className="text-center">
-            <div className="text-xl sm:text-2xl font-bold text-gray-900">{formatVolume(stats.volume)}</div>
-            <div className="text-xs text-gray-500">Volume (sats)</div>
-          </div>
-        </div>
+        )}
       </div>
 
       {/* Filters Bar */}

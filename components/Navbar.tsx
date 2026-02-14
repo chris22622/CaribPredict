@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { Search, User, Wallet, TrendingUp, Menu, X, ChevronDown, Bitcoin, BarChart2, Trophy, Settings } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
+import { Search, User, Wallet, TrendingUp, Menu, X, ChevronDown, Bitcoin, BarChart2, Trophy, Settings, Bookmark } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '@/app/layout-client';
 import { formatSatoshis } from '@/lib/amm';
@@ -10,10 +10,19 @@ import { formatSatoshis } from '@/lib/amm';
 export default function Navbar() {
   const { user, balance, openAuth, openWallet, logout } = useAuth();
   const pathname = usePathname();
+  const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileDropdown, setProfileDropdown] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      router.push(`/?search=${encodeURIComponent(searchQuery.trim())}`);
+      setMobileMenuOpen(false);
+    }
+  };
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -65,7 +74,7 @@ export default function Navbar() {
           </div>
 
           {/* Center: Search */}
-          <div className="hidden md:flex flex-1 max-w-md mx-6">
+          <form onSubmit={handleSearch} className="hidden md:flex flex-1 max-w-md mx-6">
             <div className="relative w-full">
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
@@ -76,7 +85,7 @@ export default function Navbar() {
                 className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
               />
             </div>
-          </div>
+          </form>
 
           {/* Right: Auth + Wallet */}
           <div className="flex items-center gap-2">
@@ -135,6 +144,14 @@ export default function Navbar() {
                       >
                         <Wallet size={16} />
                         Portfolio
+                      </Link>
+                      <Link
+                        href="/watchlist"
+                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
+                        onClick={() => setProfileDropdown(false)}
+                      >
+                        <Bookmark size={16} />
+                        Watchlist
                       </Link>
                       <Link
                         href="/profile"
@@ -197,14 +214,16 @@ export default function Navbar() {
         {mobileMenuOpen && (
           <div className="md:hidden pb-4 border-t border-gray-100 mt-2 pt-3 animate-fade-in">
             {/* Mobile Search */}
-            <div className="relative mb-3">
+            <form onSubmit={handleSearch} className="relative mb-3">
               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search markets..."
                 className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm"
               />
-            </div>
+            </form>
             <div className="flex flex-col gap-1">
               {navLinks.map((link) => (
                 <Link

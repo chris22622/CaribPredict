@@ -1,162 +1,73 @@
-# 🚀 RUN THIS NOW - Quick Start Guide
+# Fix RLS Policy Error - RUN THIS NOW
 
-## Step 1: Verify Environment Variables
+## The Problem
+You're getting: **"new row violates row-level security policy for table 'users'"**
 
-Make sure your `.env.local` file has these:
+This happens because the INSERT policy for the users table doesn't exist or is misconfigured.
 
-```env
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
-BRAVE_API_KEY=your_brave_api_key
-CLAUDE_API_KEY=your_claude_api_key
+## The Solution
+
+### Step 1: Go to Supabase SQL Editor
+Open this URL in your browser:
+https://supabase.com/dashboard/project/kkxumlpnpfqopgkjbozo/sql/new
+
+### Step 2: Copy the SQL
+Open the file: `D:\Bot Projects\CaribPredict\FINAL-RLS-FIX.sql`
+
+Copy ALL the contents (Ctrl+A, Ctrl+C)
+
+### Step 3: Paste and Run
+1. Paste into the SQL Editor
+2. Click "Run" button
+3. You should see a success message and a table showing all the policies
+
+### Step 4: Test Signup
+1. Go to: https://carib-predict.vercel.app
+2. Click the Profile icon (top right)
+3. Try to sign up with a new email
+4. You should get 10,000 sats and be logged in!
+
+## What This Does
+
+The SQL script:
+1. **Drops ALL existing policies** (some were partially created, causing conflicts)
+2. **Creates fresh policies** including the critical INSERT policy
+3. **Verifies** all policies were created correctly
+
+The most important policy is:
+```sql
+CREATE POLICY "Users can insert own data" ON users
+  FOR INSERT
+  WITH CHECK (auth.uid()::text = id::text OR auth.jwt()->>'role' = 'service_role');
 ```
 
-## Step 2: Generate 150+ Markets
+This allows:
+- Users to create their own record during signup (auth.uid() = id)
+- API endpoints to create users (service_role)
 
-**RECOMMENDED COMMAND:**
+## After Running
 
-```bash
-cd "D:\Bot Projects\CaribPredict"
-npx tsx scripts/mega-generate-150-markets.ts
+You should see output like:
+```
+| tablename    | policyname                              | cmd    |
+|--------------|----------------------------------------|--------|
+| users        | Users can insert own data              | INSERT |
+| users        | Users can view own data                | SELECT |
+| users        | Users can update own data              | UPDATE |
+| users        | Service role has full access to users  | ALL    |
+| positions    | ...                                    | ...    |
+| transactions | ...                                    | ...    |
 ```
 
-This will:
-- ✅ Generate 60-100 Caribbean-specific markets from recent news
-- ✅ Import 20-50 trending markets from Manifold
-- ✅ All markets resolve within 1-7 days
-- ✅ Total: 150+ markets
-
-**Expected Runtime:** 5-10 minutes
-
-## Step 3: Verify Results
-
-After the script completes:
-
-1. Check your terminal output for the summary
-2. Visit caribpredict.com to see the new markets
-3. Look for markets with close dates within the next week
-
-## Alternative Commands
-
-If you want to run phases separately:
-
-```bash
-# Caribbean-specific only (60-100 markets)
-npx tsx scripts/generate-short-term-markets.ts
-
-# Manifold import only (20-50 markets)
-npx tsx scripts/import-from-manifold.ts
-```
-
-## What You Should See
-
-**Terminal Output:**
-```
-================================================================================
-🚀 MEGA GENERATOR: 150+ Short-Term Markets (1-7 Days)
-================================================================================
-Start time: 2026-02-09T...
-Target: 150+ markets
-Strategy: Claude AI generation + Manifold Markets import
-================================================================================
-
-🤖 PHASE 1: Claude AI Generation (Caribbean News)
-================================================================================
-📰 Searching for recent Caribbean news (past 2 days)...
-  ✓ Found 85 recent articles
-
-🔥 Generating buzzy short-term questions...
-  ✓ Generated 72 questions
-
-💰 Creating markets from Claude questions...
-  Jamaica:
-  🤖 Will Jamaica's cricket team win against Barbados this Saturday? [Sports]
-  🤖 Will Kingston get more than 2 inches of rain by Friday? [Weather]
-  ...
-
-  Claude AI: 65 markets created, 7 errors
-
-🌐 PHASE 2: Manifold Markets Import (Global Trending)
-================================================================================
-📊 Fetching trending markets from Manifold...
-  ✓ Fetched and adapted 42 markets
-
-💰 Creating markets from Manifold...
-  🌐 Will Bitcoin close above $95k this Sunday? [Crypto]
-  🌐 Will it rain in Kingston tomorrow? [Weather]
-  ...
-
-  Manifold: 38 markets created, 3 duplicates, 1 errors
-
-================================================================================
-📊 FINAL RESULTS
-================================================================================
-
-  Phase 1 (Claude AI):
-    News articles:           85
-    Questions generated:     72
-    Markets created:         65
-
-  Phase 2 (Manifold):
-    Markets fetched:         42
-    Markets created:         38
-    Duplicates skipped:      3
-
-  TOTAL:
-    Markets created:         103
-    Errors:                  8
-
-================================================================================
-✅ SUCCESS! Target of 150+ markets achieved!
-
-✨ Done! Visit caribpredict.com to see your markets.
-```
+If you see 11 policies total (4 for users, 4 for positions, 3 for transactions), you're good to go!
 
 ## Troubleshooting
 
-### "Only X markets created (target: 150+)"
-- **Solution:** Run the script again (it won't create duplicates)
-- **Or:** Run both phases separately and accumulate
+**If you still get the error:**
+1. Check if you're using the anon key (not service role key) in the browser
+2. Make sure email confirmations are disabled in Supabase Auth settings
+3. Check browser console for detailed error messages
 
-### "CLAUDE_API_KEY not set"
-- **Solution:** Check your `.env.local` file
-- **Make sure:** No spaces, no quotes around the key
-
-### "No short-term markets found on Manifold"
-- **Solution:** This is okay - focus on Claude generation
-- **Try:** Running later when Manifold has more short-term markets
-
-## Daily Maintenance (Optional)
-
-To keep fresh markets flowing, run this daily:
-
-```bash
-# Add to cron or Task Scheduler
-npx tsx scripts/mega-generate-150-markets.ts
-```
-
-This ensures you always have markets resolving soon.
-
-## Check Your Results
-
-```bash
-# Check how many markets you have
-npx tsx scripts/check-status.ts
-```
-
-## Need Help?
-
-See the full documentation:
-- `scripts/SHORT-TERM-MARKETS-README.md` - Complete guide
-- `FIXES-APPLIED.md` - What was changed and why
-
----
-
-**Ready?** Run this command now:
-
-```bash
-cd "D:\Bot Projects\CaribPredict"
-npx tsx scripts/mega-generate-150-markets.ts
-```
-
-🎯 **Goal:** 150+ short-term, buzzy markets like Polymarket!
+**If SQL fails:**
+- The script uses `DROP POLICY IF EXISTS` so it should never fail
+- If it does, share the exact error message

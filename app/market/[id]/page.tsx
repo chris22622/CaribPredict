@@ -6,8 +6,9 @@ import { supabase } from '@/lib/supabase';
 import { Market, MarketOption, Position } from '@/lib/types';
 import TradingInterface from '@/components/TradingInterface';
 import ActivityFeed from '@/components/ActivityFeed';
+import Comments from '@/components/Comments';
 import MarketChart from '@/components/MarketChart';
-import { ArrowLeft, Calendar, MapPin, Clock, Info, Share2, Star, TrendingUp, Users } from 'lucide-react';
+import { ArrowLeft, Calendar, MapPin, Clock, Info, Share2, Star, TrendingUp, Users, Bookmark, BookmarkCheck, Twitter, MessageCircle as WhatsAppIcon, Link2, Check } from 'lucide-react';
 import { formatProbability } from '@/lib/amm';
 import Link from 'next/link';
 import { useAuth } from '@/app/layout-client';
@@ -23,8 +24,11 @@ export default function MarketPage() {
   const [positions, setPositions] = useState<{ [optionId: string]: number }>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState<'trade' | 'activity' | 'details'>('trade');
+  const [activeTab, setActiveTab] = useState<'comments' | 'activity' | 'details'>('comments');
   const [tradeStats, setTradeStats] = useState({ totalTrades: 0, totalVolume: 0, uniqueTraders: 0 });
+  const [isBookmarked, setIsBookmarked] = useState(false);
+  const [showShareMenu, setShowShareMenu] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
 
   const loadMarketData = useCallback(async () => {
     setLoading(true);
@@ -88,6 +92,58 @@ export default function MarketPage() {
   useEffect(() => {
     loadMarketData();
   }, [loadMarketData]);
+
+  // Load bookmark status
+  useEffect(() => {
+    if (user && marketId) {
+      supabase
+        .from('bookmarks')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('market_id', marketId)
+        .single()
+        .then(({ data }) => setIsBookmarked(!!data));
+    }
+  }, [user, marketId]);
+
+  const toggleBookmark = async () => {
+    if (!user) { openAuth(); return; }
+    try {
+      if (isBookmarked) {
+        await supabase.from('bookmarks').delete().eq('user_id', user.id).eq('market_id', marketId);
+        setIsBookmarked(false);
+        toast.success('Removed from watchlist');
+      } else {
+        await supabase.from('bookmarks').insert({ user_id: user.id, market_id: marketId });
+        setIsBookmarked(true);
+        toast.success('Added to watchlist');
+      }
+    } catch { toast.error('Failed to update watchlist'); }
+  };
+
+  const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
+  const shareText = market ? `${market.question} - CaribPredict` : 'CaribPredict';
+
+  const handleShare = (platform: string) => {
+    const encodedUrl = encodeURIComponent(shareUrl);
+    const encodedText = encodeURIComponent(shareText);
+
+    switch (platform) {
+      case 'twitter':
+        window.open(`https://twitter.com/intent/tweet?text=${encodedText}&url=${encodedUrl}`, '_blank');
+        break;
+      case 'whatsapp':
+        window.open(`https://wa.me/?text=${encodedText}%20${encodedUrl}`, '_blank');
+        break;
+      case 'copy':
+        navigator.clipboard.writeText(shareUrl);
+        setCopiedLink(true);
+        toast.success('Link copied!');
+        setTimeout(() => setCopiedLink(false), 2000);
+        break;
+    }
+    setShowShareMenu(false);
+  };
 
   const handleTrade = async (
     optionId: string,
@@ -200,9 +256,45 @@ export default function MarketPage() {
               </span>
             </div>
 
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-3 leading-tight">
-              {market.question}
-            </h1>
+            <div className="flex items-start justify-between gap-3 mb-3">
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 leading-tight">
+                {market.question}
+              </h1>
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  onClick={toggleBookmark}
+                  className={`p-2 rounded-lg transition-colors ${
+                    isBookmarked ? 'text-yellow-500 bg-yellow-50' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
+                  }`}
+                  title={isBookmarked ? 'Remove from watchlist' : 'Add to watchlist'}
+                >
+                  {isBookmarked ? <BookmarkCheck size={18} /> : <Bookmark size={18} />}
+                </button>
+                <div className="relative">
+                  <button
+                    onClick={() => setShowShareMenu(!showShareMenu)}
+                    className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-colors"
+                    title="Share"
+                  >
+                    <Share2 size={18} />
+                  </button>
+                  {showShareMenu && (
+                    <div className="absolute right-0 mt-1 w-44 bg-white rounded-xl border border-gray-200 shadow-lg py-1 z-50 animate-fade-in">
+                      <button onClick={() => handleShare('twitter')} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center gap-2 text-gray-700">
+                        <Twitter size={15} /> Share on X
+                      </button>
+                      <button onClick={() => handleShare('whatsapp')} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center gap-2 text-gray-700">
+                        <WhatsAppIcon size={15} /> WhatsApp
+                      </button>
+                      <button onClick={() => handleShare('copy')} className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center gap-2 text-gray-700">
+                        {copiedLink ? <Check size={15} className="text-green-500" /> : <Link2 size={15} />}
+                        {copiedLink ? 'Copied!' : 'Copy Link'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
 
             {market.description && (
               <p className="text-sm text-gray-500 leading-relaxed mb-4">
@@ -275,7 +367,7 @@ export default function MarketPage() {
 
           {/* Tabs */}
           <div className="flex gap-1 bg-white rounded-xl border border-gray-200 p-1">
-            {(['activity', 'details'] as const).map((tab) => (
+            {(['comments', 'activity', 'details'] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -285,12 +377,16 @@ export default function MarketPage() {
                     : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
-                {tab === 'activity' ? 'Activity' : 'Details'}
+                {tab === 'activity' ? 'Activity' : tab === 'comments' ? 'Comments' : 'Details'}
               </button>
             ))}
           </div>
 
           {/* Tab Content */}
+          {activeTab === 'comments' && (
+            <Comments marketId={marketId} />
+          )}
+
           {activeTab === 'activity' && (
             <ActivityFeed marketId={marketId} options={options} />
           )}

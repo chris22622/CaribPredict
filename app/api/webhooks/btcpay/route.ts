@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
       await supabase
         .from('transactions')
         .update({ status: 'completed' })
-        .eq('btcpay_payout_id', payoutId);
+        .eq('btcpay_invoice_id', payoutId);
 
       console.log(`Payout completed: ${payoutId}`);
     }

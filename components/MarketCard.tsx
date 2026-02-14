@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { Market, MarketOption } from '@/lib/types';
 import { formatProbability } from '@/lib/amm';
-import { Clock, TrendingUp } from 'lucide-react';
+import { Clock, TrendingUp, Flame, Sparkles, Radio } from 'lucide-react';
 
 interface MarketCardProps {
   market: Market;
@@ -23,6 +23,14 @@ export default function MarketCard({ market, options, compact = false }: MarketC
   const isBinary = options.length === 2;
   const yesOption = isBinary ? options.find(o => o.label.toLowerCase() === 'yes') || options[0] : null;
   const noOption = isBinary ? options.find(o => o.label.toLowerCase() === 'no') || options[1] : null;
+
+  // Badge logic
+  const createdAt = new Date(market.created_at);
+  const hoursSinceCreated = (now.getTime() - createdAt.getTime()) / (1000 * 60 * 60);
+  const isNew = hoursSinceCreated < 48;
+  const totalShares = options.reduce((sum, o) => sum + o.total_shares, 0);
+  const isTrending = totalShares > 50;
+  const isLive = !isClosed && hoursLeft < 24 && hoursLeft > 0;
 
   const getTimeLabel = () => {
     if (isClosed) return 'Closed';
@@ -86,6 +94,27 @@ export default function MarketCard({ market, options, compact = false }: MarketC
             {getTimeLabel()}
           </span>
         </div>
+
+        {/* Badges */}
+        {(isNew || isTrending || isLive) && (
+          <div className="flex gap-1.5 mb-2">
+            {isLive && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-red-50 text-red-600 text-[10px] font-bold rounded-md uppercase tracking-wide">
+                <Radio size={10} className="animate-pulse" /> Live
+              </span>
+            )}
+            {isTrending && !isLive && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-orange-50 text-orange-600 text-[10px] font-bold rounded-md uppercase tracking-wide">
+                <Flame size={10} /> Trending
+              </span>
+            )}
+            {isNew && !isTrending && !isLive && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-blue-50 text-blue-600 text-[10px] font-bold rounded-md uppercase tracking-wide">
+                <Sparkles size={10} /> New
+              </span>
+            )}
+          </div>
+        )}
 
         <h3 className="text-sm font-semibold text-gray-900 mb-3 line-clamp-2 leading-snug group-hover:text-blue-600 transition-colors">
           {market.question}

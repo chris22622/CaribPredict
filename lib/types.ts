@@ -86,6 +86,27 @@ export interface NewsArticle {
   };
 }
 
+export interface Comment {
+  id: string;
+  market_id: string;
+  user_id: string;
+  parent_id?: string;
+  content: string;
+  likes: number;
+  created_at: string;
+  updated_at: string;
+  user?: User;
+  replies?: Comment[];
+  liked_by_user?: boolean;
+}
+
+export interface Bookmark {
+  id: string;
+  user_id: string;
+  market_id: string;
+  created_at: string;
+}
+
 export interface GeneratedQuestion {
   question: string;
   description: string;
