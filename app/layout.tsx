@@ -5,7 +5,7 @@ import { Toaster } from 'sonner';
 
 export const metadata: Metadata = {
   title: 'CaribPredict - Caribbean Prediction Markets',
-  description: 'Trade predictions on Caribbean events and outcomes',
+  description: 'Predict and trade on Caribbean events. The #1 prediction market for CARICOM nations.',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: '#1570EF',
+  themeColor: '#ffffff',
 };
 
 export default function RootLayout({
@@ -25,47 +25,13 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="bg-caribbean-sand">
-        {/* Toast Notifications */}
-        <Toaster position="top-right" richColors />
-
-        {/* Auth-aware Layout */}
+      <body className="bg-poly-bg antialiased">
+        <Toaster position="top-center" richColors closeButton />
         <LayoutClient>
-          {/* Main Content */}
-          <main className="container mx-auto px-4 py-8 min-h-screen">
+          <main className="min-h-screen">
             {children}
           </main>
         </LayoutClient>
-
-        {/* Footer */}
-        <footer className="bg-white border-t border-caribbean-gray-200 py-8 mt-16">
-          <div className="container mx-auto px-4">
-            <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-              <div className="text-center md:text-left">
-                <p className="text-sm text-caribbean-gray-600">
-                  © 2026 CaribPredict - Caribbean Prediction Markets
-                </p>
-                <p className="text-xs text-caribbean-gray-500 mt-1">
-                  Trade responsibly. Markets are for entertainment and informational purposes.
-                </p>
-              </div>
-              <div className="flex gap-6 text-sm text-caribbean-gray-600">
-                <a href="#" className="hover:text-caribbean-blue transition-colors">
-                  About
-                </a>
-                <a href="#" className="hover:text-caribbean-blue transition-colors">
-                  Help
-                </a>
-                <a href="#" className="hover:text-caribbean-blue transition-colors">
-                  Terms
-                </a>
-                <a href="#" className="hover:text-caribbean-blue transition-colors">
-                  Privacy
-                </a>
-              </div>
-            </div>
-          </div>
-        </footer>
       </body>
     </html>
   );

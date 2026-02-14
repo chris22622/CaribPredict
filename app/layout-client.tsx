@@ -1,45 +1,45 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, createContext, useContext, useCallback } from 'react';
 import { User } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase-client';
 import Navbar from '@/components/Navbar';
 import WalletModal from '@/components/WalletModal';
 import AuthModal from '@/components/AuthModal';
+import Footer from '@/components/Footer';
+
+interface AuthContextType {
+  user: User | null;
+  balance: number;
+  loading: boolean;
+  refreshBalance: () => Promise<void>;
+  openAuth: () => void;
+  openWallet: () => void;
+  logout: () => Promise<void>;
+}
+
+export const AuthContext = createContext<AuthContextType>({
+  user: null,
+  balance: 0,
+  loading: true,
+  refreshBalance: async () => {},
+  openAuth: () => {},
+  openWallet: () => {},
+  logout: async () => {},
+});
+
+export const useAuth = () => useContext(AuthContext);
 
 export default function LayoutClient({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [balance, setBalance] = useState<number | undefined>(undefined);
+  const [balance, setBalance] = useState<number>(0);
+  const [loading, setLoading] = useState(true);
   const [walletOpen, setWalletOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
 
   const supabase = createClient();
 
-  useEffect(() => {
-    // Check initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        loadBalance(session.user.id);
-      }
-    });
-
-    // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        loadBalance(session.user.id);
-      } else {
-        setBalance(undefined);
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  const loadBalance = async (userId: string) => {
+  const loadBalance = useCallback(async (userId: string) => {
     const { data, error } = await supabase
       .from('users')
       .select('balance_satoshis')
@@ -49,40 +49,60 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
     if (!error && data) {
       setBalance(data.balance_satoshis);
     }
-  };
+  }, []);
 
-  const handleProfileClick = () => {
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        loadBalance(session.user.id);
+      }
+      setLoading(false);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        loadBalance(session.user.id);
+      } else {
+        setBalance(0);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const refreshBalance = useCallback(async () => {
     if (user) {
-      // Navigate to profile
-      window.location.href = '/profile';
-    } else {
-      // Show auth modal
-      setAuthOpen(true);
+      await loadBalance(user.id);
     }
-  };
+  }, [user, loadBalance]);
 
-  const handleLogout = async () => {
+  const logout = useCallback(async () => {
     await supabase.auth.signOut();
     setUser(null);
-    setBalance(undefined);
-  };
+    setBalance(0);
+  }, []);
 
   return (
-    <>
-      <Navbar balance={balance} onWalletClick={() => user ? setWalletOpen(true) : setAuthOpen(true)} />
+    <AuthContext.Provider
+      value={{
+        user,
+        balance,
+        loading,
+        refreshBalance,
+        openAuth: () => setAuthOpen(true),
+        openWallet: () => (user ? setWalletOpen(true) : setAuthOpen(true)),
+        logout,
+      }}
+    >
+      <Navbar />
+      {children}
+      <Footer />
 
-      <div onClick={(e) => {
-        const target = e.target as HTMLElement;
-        // Check if clicking profile link/icon
-        if (target.closest('[href="/profile"]') && !user) {
-          e.preventDefault();
-          setAuthOpen(true);
-        }
-      }}>
-        {children}
-      </div>
-
-      {user && balance !== undefined && walletOpen && (
+      {user && walletOpen && (
         <WalletModal
           user={{
             id: user.id,
@@ -92,7 +112,7 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
             created_at: new Date().toISOString(),
           }}
           onClose={() => setWalletOpen(false)}
-          onUpdate={() => loadBalance(user.id)}
+          onUpdate={refreshBalance}
         />
       )}
 
@@ -107,6 +127,6 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
           });
         }}
       />
-    </>
+    </AuthContext.Provider>
   );
 }

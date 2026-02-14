@@ -1,57 +1,65 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Market, MarketOption, CaricomCountry } from '@/lib/types';
+import { Market, MarketOption, CaricomCountry, CARICOM_COUNTRIES } from '@/lib/types';
 import MarketCard from '@/components/MarketCard';
-import CountryFilter from '@/components/CountryFilter';
-import PlatformStats from '@/components/PlatformStats';
-import { TrendingUp, Flame } from 'lucide-react';
+import { TrendingUp, Flame, Globe, ChevronDown, Search, Zap, BarChart3, Bitcoin, ArrowRight } from 'lucide-react';
 
-const CATEGORIES = ['All', 'Politics', 'Sports', 'Economics', 'Entertainment', 'Technology', 'Culture'];
+const CATEGORIES = ['All', 'Politics', 'Sports', 'Economics', 'Entertainment', 'Technology', 'Culture', 'Crypto', 'Weather'];
 
 export default function HomePage() {
   const [markets, setMarkets] = useState<Market[]>([]);
   const [marketOptions, setMarketOptions] = useState<{ [marketId: string]: MarketOption[] }>({});
-  const [selectedCountry, setSelectedCountry] = useState<CaricomCountry>('All CARICOM');
+  const [selectedCountry, setSelectedCountry] = useState<string>('All CARICOM');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
-  const [activeTab, setActiveTab] = useState<'hot' | 'all'>('hot');
+  const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [countryDropdownOpen, setCountryDropdownOpen] = useState(false);
+  const [stats, setStats] = useState({ markets: 0, traders: 0, volume: 0 });
 
   useEffect(() => {
     loadMarkets();
+    loadStats();
   }, [selectedCountry, selectedCategory]);
+
+  const loadStats = async () => {
+    try {
+      const [marketsRes, usersRes, tradesRes] = await Promise.all([
+        supabase.from('markets').select('*', { count: 'exact', head: true }).eq('resolved', false),
+        supabase.from('users').select('*', { count: 'exact', head: true }),
+        supabase.from('trades').select('total_cost'),
+      ]);
+      setStats({
+        markets: marketsRes.count || 0,
+        traders: usersRes.count || 0,
+        volume: tradesRes.data?.reduce((s, t) => s + (t.total_cost || 0), 0) || 0,
+      });
+    } catch (e) {}
+  };
 
   const loadMarkets = async () => {
     setLoading(true);
     setError('');
-
     try {
-      // Build query
       let query = supabase
         .from('markets')
         .select('*')
         .eq('resolved', false)
         .order('created_at', { ascending: false });
 
-      // Filter by country if not "All CARICOM"
       if (selectedCountry !== 'All CARICOM') {
         query = query.eq('country_filter', selectedCountry);
       }
-
-      // Filter by category if not "All"
       if (selectedCategory !== 'All') {
         query = query.eq('category', selectedCategory);
       }
 
       const { data: marketsData, error: marketsError } = await query;
-
       if (marketsError) throw marketsError;
-
       setMarkets(marketsData || []);
 
-      // Load options for each market
       if (marketsData && marketsData.length > 0) {
         const marketIds = marketsData.map((m) => m.id);
         const { data: optionsData, error: optionsError } = await supabase
@@ -62,7 +70,6 @@ export default function HomePage() {
 
         if (optionsError) throw optionsError;
 
-        // Group options by market_id
         const optionsByMarket: { [key: string]: MarketOption[] } = {};
         optionsData?.forEach((option) => {
           if (!optionsByMarket[option.market_id]) {
@@ -70,8 +77,9 @@ export default function HomePage() {
           }
           optionsByMarket[option.market_id].push(option);
         });
-
         setMarketOptions(optionsByMarket);
+      } else {
+        setMarketOptions({});
       }
     } catch (err: any) {
       setError(err.message || 'Failed to load markets');
@@ -80,133 +88,183 @@ export default function HomePage() {
     }
   };
 
-  // Get hot markets (for demo, just show newest 6)
-  const hotMarkets = markets.slice(0, 6);
-  const displayedMarkets = activeTab === 'hot' ? hotMarkets : markets;
+  const filteredMarkets = searchQuery
+    ? markets.filter(m => m.question.toLowerCase().includes(searchQuery.toLowerCase()))
+    : markets;
+
+  const trendingMarkets = filteredMarkets.slice(0, 6);
+  const allMarkets = filteredMarkets;
+
+  const formatVolume = (sats: number) => {
+    if (sats >= 1000000) return `${(sats / 1000000).toFixed(1)}M`;
+    if (sats >= 1000) return `${(sats / 1000).toFixed(0)}K`;
+    return sats.toString();
+  };
+
+  const countries = CARICOM_COUNTRIES as readonly string[];
 
   return (
-    <div className="max-w-7xl mx-auto">
-      {/* Header Section */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-caribbean-navy mb-2">
-          Caribbean Prediction Markets
-        </h1>
-        <p className="text-caribbean-gray-600">
-          Trade on outcomes you care about. Make informed predictions on Caribbean events.
-        </p>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6">
+      {/* Hero Section */}
+      <div className="py-8 sm:py-12">
+        <div className="text-center max-w-2xl mx-auto mb-8">
+          <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-3">
+            Caribbean Prediction Markets
+          </h1>
+          <p className="text-gray-500 text-base sm:text-lg">
+            Trade on real events across all CARICOM nations. Deposit with Bitcoin, earn sats.
+          </p>
+        </div>
+
+        {/* Stats Bar */}
+        <div className="flex items-center justify-center gap-6 sm:gap-10 mb-8">
+          <div className="text-center">
+            <div className="text-xl sm:text-2xl font-bold text-gray-900">{stats.markets}</div>
+            <div className="text-xs text-gray-500">Active Markets</div>
+          </div>
+          <div className="w-px h-8 bg-gray-200" />
+          <div className="text-center">
+            <div className="text-xl sm:text-2xl font-bold text-gray-900">{stats.traders}</div>
+            <div className="text-xs text-gray-500">Traders</div>
+          </div>
+          <div className="w-px h-8 bg-gray-200" />
+          <div className="text-center">
+            <div className="text-xl sm:text-2xl font-bold text-gray-900">{formatVolume(stats.volume)}</div>
+            <div className="text-xs text-gray-500">Volume (sats)</div>
+          </div>
+        </div>
       </div>
 
-      {/* Platform Stats */}
-      <PlatformStats />
-
-      {/* Tabs & Filters */}
-      <div className="space-y-4 mb-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          {/* Tabs */}
-          <div className="flex gap-2">
-            <button
-              onClick={() => setActiveTab('hot')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
-                activeTab === 'hot'
-                  ? 'bg-caribbean-blue text-white'
-                  : 'bg-white text-caribbean-gray-700 border border-caribbean-gray-200 hover:bg-caribbean-gray-50'
-              }`}
-            >
-              <Flame size={18} />
-              Hot Markets
-            </button>
-            <button
-              onClick={() => setActiveTab('all')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
-                activeTab === 'all'
-                  ? 'bg-caribbean-blue text-white'
-                  : 'bg-white text-caribbean-gray-700 border border-caribbean-gray-200 hover:bg-caribbean-gray-50'
-              }`}
-            >
-              <TrendingUp size={18} />
-              All Markets
-            </button>
+      {/* Filters Bar */}
+      <div className="sticky top-14 bg-[#f7f7f8] z-40 pb-4 -mx-4 px-4 sm:-mx-6 sm:px-6">
+        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+          {/* Category Tabs */}
+          <div className="flex gap-1.5 overflow-x-auto hide-scrollbar pb-1 w-full sm:w-auto">
+            {CATEGORIES.map((category) => (
+              <button
+                key={category}
+                onClick={() => setSelectedCategory(category)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
+                  selectedCategory === category
+                    ? 'bg-gray-900 text-white'
+                    : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 hover:border-gray-300'
+                }`}
+              >
+                {category}
+              </button>
+            ))}
           </div>
 
-          {/* Country Filter */}
-          <CountryFilter selected={selectedCountry} onChange={setSelectedCountry} />
-        </div>
-
-        {/* Category Filter */}
-        <div className="flex gap-2 overflow-x-auto pb-2">
-          {CATEGORIES.map((category) => (
+          {/* Country Dropdown */}
+          <div className="relative">
             <button
-              key={category}
-              onClick={() => setSelectedCategory(category)}
-              className={`px-4 py-2 rounded-lg font-medium whitespace-nowrap transition-all ${
-                selectedCategory === category
-                  ? 'bg-caribbean-teal text-white'
-                  : 'bg-white text-caribbean-gray-700 border border-caribbean-gray-200 hover:bg-caribbean-gray-50'
-              }`}
+              onClick={() => setCountryDropdownOpen(!countryDropdownOpen)}
+              className="flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors"
             >
-              {category}
+              <Globe size={14} />
+              {selectedCountry}
+              <ChevronDown size={14} />
             </button>
-          ))}
+            {countryDropdownOpen && (
+              <div className="absolute right-0 mt-1 w-56 bg-white rounded-xl border border-gray-200 shadow-lg py-1 z-50 max-h-80 overflow-y-auto animate-fade-in">
+                {countries.map((country) => (
+                  <button
+                    key={country}
+                    onClick={() => { setSelectedCountry(country); setCountryDropdownOpen(false); }}
+                    className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors ${
+                      selectedCountry === country ? 'bg-gray-50 font-medium text-gray-900' : 'text-gray-600'
+                    }`}
+                  >
+                    {country}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Loading State */}
+      {/* Loading */}
       {loading && (
-        <div className="flex flex-col justify-center items-center py-20">
-          <div className="animate-spin rounded-full h-12 w-12 border-4 border-caribbean-gray-200 border-t-caribbean-blue mb-4"></div>
-          <p className="text-caribbean-gray-500">Loading markets...</p>
+        <div className="flex flex-col items-center py-20">
+          <div className="w-8 h-8 border-2 border-gray-200 border-t-gray-900 rounded-full animate-spin mb-3" />
+          <p className="text-sm text-gray-400">Loading markets...</p>
         </div>
       )}
 
-      {/* Error State */}
+      {/* Error */}
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-lg">
-          <p className="font-medium">Error loading markets</p>
-          <p className="text-sm mt-1">{error}</p>
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm mb-6">
+          {error}
         </div>
       )}
 
-      {/* Markets Grid */}
+      {/* Markets */}
       {!loading && !error && (
         <>
-          {displayedMarkets.length === 0 ? (
-            <div className="bg-white rounded-xl border border-caribbean-gray-200 p-12 text-center">
-              <div className="max-w-md mx-auto">
-                <TrendingUp size={48} className="text-caribbean-gray-300 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-caribbean-navy mb-2">
-                  No markets found
-                </h3>
-                <p className="text-caribbean-gray-600">
-                  No active markets for {selectedCountry}. Check back soon for new prediction markets!
-                </p>
+          {filteredMarkets.length === 0 ? (
+            <div className="text-center py-20">
+              <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <TrendingUp size={24} className="text-gray-400" />
               </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-1">No markets found</h3>
+              <p className="text-sm text-gray-500 max-w-sm mx-auto">
+                {searchQuery
+                  ? `No markets matching "${searchQuery}"`
+                  : `No active markets for ${selectedCountry}. Check back soon!`}
+              </p>
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {displayedMarkets.map((market) => (
-                  <MarketCard
-                    key={market.id}
-                    market={market}
-                    options={marketOptions[market.id] || []}
-                  />
-                ))}
-              </div>
-
-              {activeTab === 'hot' && markets.length > 6 && (
-                <div className="text-center mt-8">
-                  <button
-                    onClick={() => setActiveTab('all')}
-                    className="px-6 py-3 bg-white border border-caribbean-gray-200 text-caribbean-navy font-medium rounded-lg hover:bg-caribbean-gray-50 transition-colors"
-                  >
-                    View All Markets
-                  </button>
+              {/* Trending Section */}
+              {trendingMarkets.length > 0 && !searchQuery && (
+                <div className="mb-8">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Flame size={18} className="text-orange-500" />
+                    <h2 className="text-lg font-bold text-gray-900">Trending</h2>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {trendingMarkets.map((market) => (
+                      <MarketCard
+                        key={market.id}
+                        market={market}
+                        options={marketOptions[market.id] || []}
+                      />
+                    ))}
+                  </div>
                 </div>
               )}
+
+              {/* All Markets */}
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <BarChart3 size={18} className="text-gray-400" />
+                    <h2 className="text-lg font-bold text-gray-900">
+                      {searchQuery ? 'Search Results' : 'All Markets'}
+                    </h2>
+                    <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
+                      {allMarkets.length}
+                    </span>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {allMarkets.map((market) => (
+                    <MarketCard
+                      key={market.id}
+                      market={market}
+                      options={marketOptions[market.id] || []}
+                    />
+                  ))}
+                </div>
+              </div>
             </>
           )}
         </>
       )}
+
+      {/* Bottom spacer */}
+      <div className="h-12" />
     </div>
   );
 }

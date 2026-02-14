@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { X, Mail, Lock, User as UserIcon } from 'lucide-react';
+import { X, Mail, Lock, User as UserIcon, Bitcoin, Gift } from 'lucide-react';
 import { createClient } from '@/lib/supabase-client';
 
 interface AuthModalProps {
@@ -11,7 +11,7 @@ interface AuthModalProps {
 }
 
 export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
-  const [mode, setMode] = useState<'login' | 'signup'>('login');
+  const [mode, setMode] = useState<'login' | 'signup'>('signup');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
@@ -27,45 +27,34 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
 
     try {
       if (mode === 'signup') {
-        // Sign up
         const { data: authData, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
           options: {
-            data: {
-              username: username || email.split('@')[0],
-            },
+            data: { username: username || email.split('@')[0] },
           },
         });
 
         if (signUpError) throw signUpError;
 
         if (authData.user) {
-          // Create user record in users table
-          const { error: userError } = await supabase
-            .from('users')
-            .insert({
-              id: authData.user.id,
-              username: username || email.split('@')[0],
-              balance_satoshis: 10000, // Give new users 10k sats to start
-            });
+          const { error: userError } = await supabase.from('users').insert({
+            id: authData.user.id,
+            username: username || email.split('@')[0],
+            balance_satoshis: 10000,
+          });
 
-          if (userError) {
-            console.error('Error creating user record:', userError);
-          }
-
+          if (userError) console.error('Error creating user record:', userError);
           onSuccess();
           onClose();
         }
       } else {
-        // Login
         const { error: signInError } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
 
         if (signInError) throw signInError;
-
         onSuccess();
         onClose();
       }
@@ -79,92 +68,68 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 relative">
-        {/* Close button */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 text-caribbean-gray-400 hover:text-caribbean-gray-600"
-        >
-          <X size={24} />
-        </button>
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-modal animate-slide-up">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-xl font-bold text-gray-900">
+            {mode === 'login' ? 'Welcome back' : 'Join CaribPredict'}
+          </h2>
+          <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
+            <X size={20} className="text-gray-400" />
+          </button>
+        </div>
 
-        {/* Header */}
-        <h2 className="text-2xl font-bold text-caribbean-navy mb-2">
-          {mode === 'login' ? 'Welcome Back' : 'Create Account'}
-        </h2>
-        <p className="text-caribbean-gray-600 mb-6">
-          {mode === 'login'
-            ? 'Sign in to start trading'
-            : 'Join CaribPredict and get 10,000 sats!'}
-        </p>
+        {mode === 'signup' && (
+          <div className="flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded-xl mb-5">
+            <Gift size={20} className="text-amber-600 shrink-0" />
+            <div>
+              <p className="text-sm font-medium text-amber-900">Get 10,000 sats free</p>
+              <p className="text-xs text-amber-700">Sign up and start trading immediately</p>
+            </div>
+          </div>
+        )}
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-3">
           {mode === 'signup' && (
             <div>
-              <label className="block text-sm font-medium text-caribbean-gray-700 mb-1">
-                Username
-              </label>
-              <div className="relative">
-                <UserIcon
-                  size={18}
-                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-caribbean-gray-400"
-                />
-                <input
-                  type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Enter username"
-                  className="w-full pl-10 pr-4 py-2 border border-caribbean-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-caribbean-blue"
-                />
-              </div>
+              <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1.5">Username</label>
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Choose a username"
+                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+              />
             </div>
           )}
 
           <div>
-            <label className="block text-sm font-medium text-caribbean-gray-700 mb-1">
-              Email
-            </label>
-            <div className="relative">
-              <Mail
-                size={18}
-                className="absolute left-3 top-1/2 transform -translate-y-1/2 text-caribbean-gray-400"
-              />
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                placeholder="your@email.com"
-                className="w-full pl-10 pr-4 py-2 border border-caribbean-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-caribbean-blue"
-              />
-            </div>
+            <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1.5">Email</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              placeholder="you@email.com"
+              className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+            />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-caribbean-gray-700 mb-1">
-              Password
-            </label>
-            <div className="relative">
-              <Lock
-                size={18}
-                className="absolute left-3 top-1/2 transform -translate-y-1/2 text-caribbean-gray-400"
-              />
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={6}
-                placeholder="••••••••"
-                className="w-full pl-10 pr-4 py-2 border border-caribbean-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-caribbean-blue"
-              />
-            </div>
+            <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-1.5">Password</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              minLength={6}
+              placeholder="••••••••"
+              className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+            />
           </div>
 
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2.5 rounded-lg text-xs">
               {error}
             </div>
           )}
@@ -172,31 +137,31 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-caribbean-blue text-white py-3 rounded-lg font-semibold hover:bg-caribbean-teal transition-colors disabled:bg-caribbean-gray-300 disabled:cursor-not-allowed"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-semibold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
           >
-            {loading ? 'Loading...' : mode === 'login' ? 'Sign In' : 'Create Account'}
+            {loading ? (
+              <span className="flex items-center justify-center gap-2">
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                {mode === 'login' ? 'Signing in...' : 'Creating account...'}
+              </span>
+            ) : (
+              mode === 'login' ? 'Sign In' : 'Create Account'
+            )}
           </button>
         </form>
 
-        {/* Toggle mode */}
-        <div className="mt-6 text-center text-sm text-caribbean-gray-600">
+        <div className="mt-5 text-center text-sm text-gray-500">
           {mode === 'login' ? (
             <>
-              Don't have an account?{' '}
-              <button
-                onClick={() => setMode('signup')}
-                className="text-caribbean-blue hover:underline font-semibold"
-              >
-                Sign up
+              New here?{' '}
+              <button onClick={() => { setMode('signup'); setError(''); }} className="text-blue-600 hover:text-blue-700 font-semibold">
+                Create account
               </button>
             </>
           ) : (
             <>
               Already have an account?{' '}
-              <button
-                onClick={() => setMode('login')}
-                className="text-caribbean-blue hover:underline font-semibold"
-              >
+              <button onClick={() => { setMode('login'); setError(''); }} className="text-blue-600 hover:text-blue-700 font-semibold">
                 Sign in
               </button>
             </>

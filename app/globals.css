@@ -3,22 +3,86 @@
 @tailwind utilities;
 
 :root {
-  --caribbean-blue: #0077be;
-  --caribbean-teal: #00b4d8;
-  --caribbean-sand: #f4e4c1;
-  --caribbean-coral: #ff6b6b;
-  --caribbean-green: #06d6a0;
-  --caribbean-navy: #023047;
+  --bg-primary: #ffffff;
+  --bg-secondary: #f7f7f8;
+  --bg-tertiary: #efefef;
+  --text-primary: #0d0d0d;
+  --text-secondary: #545454;
+  --text-tertiary: #858585;
+  --border-primary: #e5e5e5;
+  --border-secondary: #efefef;
+  --accent-blue: #0066ff;
+  --accent-green: #00c853;
+  --accent-red: #ff3d00;
+  --accent-yellow: #ffc107;
+  --yes-color: #00c853;
+  --no-color: #ff3d00;
+  --caribbean-gold: #f5a623;
+}
+
+* {
+  box-sizing: border-box;
 }
 
 body {
-  color: var(--caribbean-navy);
-  background: linear-gradient(135deg, #e0f7fa 0%, #fff9e6 100%);
+  color: var(--text-primary);
+  background: var(--bg-secondary);
   min-height: 100vh;
+  font-feature-settings: 'rlig' 1, 'calt' 1;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+/* Custom utilities */
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+/* Polymarket-style button animations */
+@layer components {
+  .btn-trade {
+    @apply font-semibold rounded-lg px-4 py-2.5 text-sm transition-all duration-150 cursor-pointer;
+  }
+  .btn-yes {
+    @apply bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 hover:border-emerald-300;
+  }
+  .btn-yes-active {
+    @apply bg-emerald-500 text-white border border-emerald-500 shadow-sm;
+  }
+  .btn-no {
+    @apply bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 hover:border-red-300;
+  }
+  .btn-no-active {
+    @apply bg-red-500 text-white border border-red-500 shadow-sm;
+  }
+  .card {
+    @apply bg-white rounded-xl border border-gray-200 hover:border-gray-300 transition-all duration-200;
+  }
+  .card-interactive {
+    @apply card hover:shadow-md cursor-pointer;
   }
 }

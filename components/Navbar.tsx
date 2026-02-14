@@ -1,118 +1,226 @@
 'use client';
 
 import Link from 'next/link';
-import { TrendingUp, Search, User, Home, Trophy, BarChart3, Wallet } from 'lucide-react';
-import { useState } from 'react';
+import { usePathname } from 'next/navigation';
+import { Search, User, Wallet, TrendingUp, Menu, X, ChevronDown, Bitcoin, BarChart2, Trophy, Settings } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { useAuth } from '@/app/layout-client';
+import { formatSatoshis } from '@/lib/amm';
 
-interface NavbarProps {
-  balance?: number;
-  onWalletClick?: () => void;
-}
+export default function Navbar() {
+  const { user, balance, openAuth, openWallet, logout } = useAuth();
+  const pathname = usePathname();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [profileDropdown, setProfileDropdown] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
-export default function Navbar({ balance, onWalletClick }: NavbarProps) {
-  const [searchOpen, setSearchOpen] = useState(false);
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setProfileDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
-  const formatSats = (sats: number) => {
-    if (sats >= 1000000) return `${(sats / 1000000).toFixed(2)}M`;
-    if (sats >= 1000) return `${(sats / 1000).toFixed(1)}k`;
-    return sats.toString();
-  };
+  const navLinks = [
+    { href: '/', label: 'Markets', icon: TrendingUp },
+    { href: '/leaderboard', label: 'Rankings', icon: Trophy },
+    { href: '/stats', label: 'Activity', icon: BarChart2 },
+  ];
+
+  const isActive = (href: string) => pathname === href;
 
   return (
-    <nav className="bg-white border-b border-caribbean-gray-200 sticky top-0 z-50">
-      <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 group">
-            <div className="bg-caribbean-blue rounded-lg p-2 group-hover:bg-caribbean-teal transition-colors">
-              <TrendingUp size={24} className="text-white" />
-            </div>
-            <span className="text-xl font-bold text-caribbean-navy">CaribPredict</span>
-          </Link>
+    <nav className="bg-white border-b border-gray-200 sticky top-0 z-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6">
+        <div className="flex items-center justify-between h-14">
+          {/* Left: Logo + Nav */}
+          <div className="flex items-center gap-6">
+            <Link href="/" className="flex items-center gap-2 shrink-0">
+              <div className="w-8 h-8 bg-gradient-to-br from-emerald-400 to-blue-500 rounded-lg flex items-center justify-center">
+                <TrendingUp size={18} className="text-white" />
+              </div>
+              <span className="text-lg font-bold text-gray-900 hidden sm:block">CaribPredict</span>
+            </Link>
 
-          {/* Center - Search */}
-          <div className="hidden md:flex flex-1 max-w-md mx-8">
+            {/* Desktop Nav Links */}
+            <div className="hidden md:flex items-center gap-1">
+              {navLinks.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    isActive(link.href)
+                      ? 'bg-gray-100 text-gray-900'
+                      : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
+                  }`}
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          {/* Center: Search */}
+          <div className="hidden md:flex flex-1 max-w-md mx-6">
             <div className="relative w-full">
-              <Search
-                size={18}
-                className="absolute left-3 top-1/2 transform -translate-y-1/2 text-caribbean-gray-400"
-              />
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search markets..."
-                className="w-full pl-10 pr-4 py-2 border border-caribbean-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-caribbean-blue focus:border-transparent"
+                className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
               />
             </div>
           </div>
 
-          {/* Right - Balance & Profile */}
-          <div className="flex items-center gap-4">
-            {/* Mobile Search Toggle */}
-            <button
-              onClick={() => setSearchOpen(!searchOpen)}
-              className="md:hidden p-2 hover:bg-caribbean-gray-100 rounded-lg transition-colors"
-            >
-              <Search size={20} className="text-caribbean-gray-600" />
-            </button>
+          {/* Right: Auth + Wallet */}
+          <div className="flex items-center gap-2">
+            {user ? (
+              <>
+                {/* Balance / Deposit */}
+                <button
+                  onClick={openWallet}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg transition-colors"
+                >
+                  <Bitcoin size={14} className="text-orange-500" />
+                  <span className="text-sm font-semibold text-gray-900">
+                    {formatSatoshis(balance)}
+                  </span>
+                </button>
 
-            {/* Balance Display with Wallet Button */}
-            {balance !== undefined && (
-              <button
-                onClick={onWalletClick}
-                className="hidden sm:flex items-center gap-2 bg-caribbean-sand px-4 py-2 rounded-lg hover:bg-caribbean-blue hover:text-white transition-all group"
-              >
-                <Wallet size={18} className="text-caribbean-blue group-hover:text-white" />
-                <span className="text-sm text-caribbean-gray-600 group-hover:text-white">Balance:</span>
-                <span className="font-bold text-caribbean-navy group-hover:text-white">{formatSats(balance)} sats</span>
-              </button>
+                {/* Portfolio */}
+                <Link
+                  href="/portfolio"
+                  className={`p-2 rounded-lg transition-colors ${
+                    pathname === '/portfolio' ? 'bg-gray-100' : 'hover:bg-gray-50'
+                  }`}
+                  title="Portfolio"
+                >
+                  <Wallet size={18} className="text-gray-600" />
+                </Link>
+
+                {/* Profile Dropdown */}
+                <div className="relative" ref={dropdownRef}>
+                  <button
+                    onClick={() => setProfileDropdown(!profileDropdown)}
+                    className="flex items-center gap-1 p-2 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    <div className="w-7 h-7 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center">
+                      <span className="text-white text-xs font-bold">
+                        {(user.email?.[0] || 'U').toUpperCase()}
+                      </span>
+                    </div>
+                    <ChevronDown size={14} className="text-gray-400" />
+                  </button>
+
+                  {profileDropdown && (
+                    <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl border border-gray-200 shadow-lg py-1 animate-fade-in">
+                      <div className="px-4 py-3 border-b border-gray-100">
+                        <p className="text-sm font-medium text-gray-900 truncate">
+                          {user.email}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          Balance: {formatSatoshis(balance)}
+                        </p>
+                      </div>
+                      <Link
+                        href="/portfolio"
+                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
+                        onClick={() => setProfileDropdown(false)}
+                      >
+                        <Wallet size={16} />
+                        Portfolio
+                      </Link>
+                      <Link
+                        href="/profile"
+                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
+                        onClick={() => setProfileDropdown(false)}
+                      >
+                        <User size={16} />
+                        Profile
+                      </Link>
+                      {user.email === 'admin@caribpredict.com' && (
+                        <Link
+                          href="/admin"
+                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50"
+                          onClick={() => setProfileDropdown(false)}
+                        >
+                          <Settings size={16} />
+                          Admin Panel
+                        </Link>
+                      )}
+                      <div className="border-t border-gray-100 mt-1">
+                        <button
+                          onClick={() => { logout(); setProfileDropdown(false); }}
+                          className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50"
+                        >
+                          Sign Out
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={openAuth}
+                  className="px-4 py-1.5 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors"
+                >
+                  Log In
+                </button>
+                <button
+                  onClick={openAuth}
+                  className="px-4 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors shadow-sm"
+                >
+                  Sign Up
+                </button>
+              </>
             )}
 
-            {/* Navigation Links */}
-            <Link
-              href="/"
-              className="p-2 hover:bg-caribbean-gray-100 rounded-lg transition-colors"
-              title="Home"
+            {/* Mobile Menu */}
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="md:hidden p-2 rounded-lg hover:bg-gray-50"
             >
-              <Home size={20} className="text-caribbean-gray-600" />
-            </Link>
-            <Link
-              href="/stats"
-              className="p-2 hover:bg-caribbean-gray-100 rounded-lg transition-colors"
-              title="Platform Stats"
-            >
-              <BarChart3 size={20} className="text-caribbean-gray-600" />
-            </Link>
-            <Link
-              href="/leaderboard"
-              className="p-2 hover:bg-caribbean-gray-100 rounded-lg transition-colors"
-              title="Leaderboard"
-            >
-              <Trophy size={20} className="text-caribbean-gray-600" />
-            </Link>
-            <Link
-              href="/profile"
-              className="p-2 hover:bg-caribbean-gray-100 rounded-lg transition-colors"
-              title="Profile"
-            >
-              <User size={20} className="text-caribbean-gray-600" />
-            </Link>
+              {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+            </button>
           </div>
         </div>
 
-        {/* Mobile Search */}
-        {searchOpen && (
-          <div className="md:hidden pb-4">
-            <div className="relative">
-              <Search
-                size={18}
-                className="absolute left-3 top-1/2 transform -translate-y-1/2 text-caribbean-gray-400"
-              />
+        {/* Mobile Menu */}
+        {mobileMenuOpen && (
+          <div className="md:hidden pb-4 border-t border-gray-100 mt-2 pt-3 animate-fade-in">
+            {/* Mobile Search */}
+            <div className="relative mb-3">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
                 placeholder="Search markets..."
-                className="w-full pl-10 pr-4 py-2 border border-caribbean-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-caribbean-blue focus:border-transparent"
-                autoFocus
+                className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm"
               />
+            </div>
+            <div className="flex flex-col gap-1">
+              {navLinks.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium ${
+                    isActive(link.href)
+                      ? 'bg-gray-100 text-gray-900'
+                      : 'text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  <link.icon size={18} />
+                  {link.label}
+                </Link>
+              ))}
             </div>
           </div>
         )}

@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
     // Convert satoshis to BTC
     const amountBTC = amountSatoshis / 100000000;
 
-    // Create payout
+    // Create payout via BTCPay
     const payout = await btcpayClient.createPayout(
       bitcoinAddress,
       amountBTC,
@@ -52,14 +52,18 @@ export async function POST(req: NextRequest) {
       user_id: userId,
       type: 'withdrawal',
       amount_satoshis: -amountSatoshis,
-      status: 'processing',
-      btcpay_payout_id: payout.id,
-      created_at: new Date().toISOString()
+      status: 'pending',
+      btcpay_invoice_id: payout.id,
+      metadata: {
+        payout_id: payout.id,
+        destination: bitcoinAddress,
+        amount_btc: amountBTC,
+      },
     });
 
     return NextResponse.json({
       success: true,
-      payoutId: payout.id
+      payoutId: payout.id,
     });
   } catch (error: any) {
     console.error('Withdrawal error:', error);

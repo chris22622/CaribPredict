@@ -1,13 +1,18 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
-import { calculateBuyCost, calculateSellPayout, MarketState } from '@/lib/amm';
+import { createClient } from '@supabase/supabase-js';
+import { calculateBuyCost, calculateSellPayout, MarketState, calculateProbability } from '@/lib/amm';
+
+// Use service role for admin operations
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
     const { userId, marketId, optionId, tradeType, shares, cost } = body;
 
-    // Validate inputs
     if (!userId || !marketId || !optionId || !tradeType || !shares) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
@@ -16,7 +21,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Shares must be positive' }, { status: 400 });
     }
 
-    // Start transaction-like operations
     // 1. Get user
     const { data: user, error: userError } = await supabase
       .from('users')
@@ -53,13 +57,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Market options not found' }, { status: 404 });
     }
 
-    // Find the option being traded
     const optionIndex = options.findIndex(opt => opt.id === optionId);
     if (optionIndex === -1) {
       return NextResponse.json({ error: 'Invalid option ID' }, { status: 400 });
     }
 
-    // 3. Verify pricing (prevent front-running)
+    // 3. Verify pricing
     const marketState: MarketState = {
       shares: options.map((o) => o.total_shares),
       liquidityParameter: market.liquidity_parameter,
@@ -75,21 +78,21 @@ export async function POST(request: Request) {
     }
 
     // Allow 1% slippage
-    if (Math.abs(calculatedCost - cost) > cost * 0.01) {
+    if (Math.abs(calculatedCost - cost) > cost * 0.01 + 1) {
       return NextResponse.json(
         { error: 'Price changed. Please try again.' },
         { status: 400 }
       );
     }
 
-    // 4. Check user balance for buy orders
+    // 4. Check balance for buys
     if (tradeType === 'buy') {
       if (user.balance_satoshis < calculatedCost) {
         return NextResponse.json({ error: 'Insufficient balance' }, { status: 400 });
       }
     }
 
-    // 5. Check user has enough shares for sell orders
+    // 5. Check shares for sells
     if (tradeType === 'sell') {
       const { data: position } = await supabase
         .from('positions')
@@ -105,14 +108,13 @@ export async function POST(request: Request) {
     }
 
     // 6. Update user balance
-    const newBalance =
-      tradeType === 'buy'
-        ? user.balance_satoshis - calculatedCost
-        : user.balance_satoshis + calculatedCost;
+    const newBalance = tradeType === 'buy'
+      ? user.balance_satoshis - calculatedCost
+      : user.balance_satoshis + calculatedCost;
 
     const { error: balanceError } = await supabase
       .from('users')
-      .update({ balance_satoshis: newBalance })
+      .update({ balance_satoshis: Math.round(newBalance) })
       .eq('id', userId);
 
     if (balanceError) {
@@ -121,7 +123,7 @@ export async function POST(request: Request) {
 
     // 7. Update market option shares
     const currentShares = options[optionIndex].total_shares;
-    const newShares = tradeType === 'buy' ? currentShares + shares : currentShares - shares;
+    const newShares = tradeType === 'buy' ? currentShares + shares : Math.max(0, currentShares - shares);
 
     const { error: sharesError } = await supabase
       .from('market_options')
@@ -130,32 +132,18 @@ export async function POST(request: Request) {
 
     if (sharesError) {
       // Rollback balance
-      await supabase
-        .from('users')
-        .update({ balance_satoshis: user.balance_satoshis })
-        .eq('id', userId);
+      await supabase.from('users').update({ balance_satoshis: user.balance_satoshis }).eq('id', userId);
       return NextResponse.json({ error: 'Failed to update shares' }, { status: 500 });
     }
 
-    // 8. Calculate new probabilities for all options
-    const newMarketState: MarketState = {
-      shares: options.map((o, idx) =>
-        idx === optionIndex ? newShares : o.total_shares
-      ),
-      liquidityParameter: market.liquidity_parameter,
-    };
-
-    const sum = newMarketState.shares.reduce(
-      (acc, q) => acc + Math.exp(q / newMarketState.liquidityParameter),
-      0
-    );
+    // 8. Calculate and update probabilities
+    const newMarketShares = options.map((o, idx) => idx === optionIndex ? newShares : o.total_shares);
+    const b = market.liquidity_parameter;
+    const sum = newMarketShares.reduce((acc, q) => acc + Math.exp(q / b), 0);
 
     for (let i = 0; i < options.length; i++) {
-      const prob = Math.exp(newMarketState.shares[i] / newMarketState.liquidityParameter) / sum;
-      await supabase
-        .from('market_options')
-        .update({ probability: prob })
-        .eq('id', options[i].id);
+      const prob = Math.exp(newMarketShares[i] / b) / sum;
+      await supabase.from('market_options').update({ probability: prob }).eq('id', options[i].id);
     }
 
     // 9. Update user position
@@ -168,33 +156,26 @@ export async function POST(request: Request) {
       .single();
 
     if (existingPosition) {
-      const currentPositionShares = existingPosition.shares;
-      const newPositionShares =
-        tradeType === 'buy' ? currentPositionShares + shares : currentPositionShares - shares;
+      const newPositionShares = tradeType === 'buy'
+        ? existingPosition.shares + shares
+        : existingPosition.shares - shares;
 
-      // Calculate new average price
       let newAveragePrice = existingPosition.avg_price;
       if (tradeType === 'buy') {
-        const totalCost =
-          currentPositionShares * existingPosition.avg_price + calculatedCost;
-        newAveragePrice = totalCost / newPositionShares;
+        const totalCost = existingPosition.shares * existingPosition.avg_price + calculatedCost;
+        newAveragePrice = newPositionShares > 0 ? totalCost / newPositionShares : 0;
       }
 
       if (newPositionShares > 0) {
-        await supabase
-          .from('positions')
-          .update({
-            shares: newPositionShares,
-            avg_price: newAveragePrice,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', existingPosition.id);
+        await supabase.from('positions').update({
+          shares: newPositionShares,
+          avg_price: newAveragePrice,
+          updated_at: new Date().toISOString(),
+        }).eq('id', existingPosition.id);
       } else {
-        // Delete position if shares reach 0
         await supabase.from('positions').delete().eq('id', existingPosition.id);
       }
     } else if (tradeType === 'buy') {
-      // Create new position
       await supabase.from('positions').insert({
         user_id: userId,
         market_id: marketId,
@@ -212,26 +193,21 @@ export async function POST(request: Request) {
       is_buy: tradeType === 'buy',
       shares: shares,
       price: calculatedCost / shares,
-      total_cost: calculatedCost,
+      total_cost: Math.round(calculatedCost),
     });
 
     // 11. Record transaction
     await supabase.from('transactions').insert({
       user_id: userId,
       type: 'trade',
-      amount_satoshis: tradeType === 'buy' ? -calculatedCost : calculatedCost,
+      amount_satoshis: tradeType === 'buy' ? -Math.round(calculatedCost) : Math.round(calculatedCost),
       status: 'confirmed',
-      metadata: {
-        market_id: marketId,
-        option_id: optionId,
-        shares: shares,
-        price: calculatedCost / shares,
-      },
+      metadata: { market_id: marketId, option_id: optionId, shares, price: calculatedCost / shares },
     });
 
     return NextResponse.json({
       success: true,
-      newBalance,
+      newBalance: Math.round(newBalance),
       message: `Successfully ${tradeType === 'buy' ? 'bought' : 'sold'} ${shares} shares`,
     });
   } catch (error: any) {
