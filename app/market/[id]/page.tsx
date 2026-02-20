@@ -10,9 +10,35 @@ import Comments from '@/components/Comments';
 import MarketChart from '@/components/MarketChart';
 import { ArrowLeft, Calendar, MapPin, Clock, Info, Share2, Star, TrendingUp, Users, Bookmark, BookmarkCheck, Twitter, MessageCircle as WhatsAppIcon, Link2, Check } from 'lucide-react';
 import { formatProbability } from '@/lib/amm';
+import { getMarketImageUrl, CATEGORY_GRADIENTS, CATEGORY_ICONS } from '@/lib/market-images';
 import Link from 'next/link';
 import { useAuth } from '@/app/layout-client';
 import { toast } from 'sonner';
+
+function MarketHeroImage({ market }: { market: Market }) {
+  const [imgError, setImgError] = useState(false);
+  const imageUrl = getMarketImageUrl(market.id, market.category, market.country_filter, market.question, 1200, 300);
+  const gradient = CATEGORY_GRADIENTS[market.category] || 'from-gray-600 to-gray-800';
+
+  return (
+    <div className="relative h-40 sm:h-48 w-full rounded-xl overflow-hidden mb-6">
+      {!imgError ? (
+        <img
+          src={imageUrl}
+          alt=""
+          className="w-full h-full object-cover"
+          onError={() => setImgError(true)}
+          loading="eager"
+        />
+      ) : (
+        <div className={`w-full h-full bg-gradient-to-br ${gradient} flex items-center justify-center`}>
+          <span className="text-6xl opacity-30">{CATEGORY_ICONS[market.category] || '\u{1F30E}'}</span>
+        </div>
+      )}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/10" />
+    </div>
+  );
+}
 
 export default function MarketPage() {
   const params = useParams();
@@ -237,6 +263,9 @@ export default function MarketPage() {
         <ArrowLeft size={16} />
         <span>Markets</span>
       </Link>
+
+      {/* Hero Image Banner */}
+      <MarketHeroImage market={market} />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column */}
