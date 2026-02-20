@@ -17,23 +17,30 @@ import { toast } from 'sonner';
 
 function MarketHeroImage({ market }: { market: Market }) {
   const [imgError, setImgError] = useState(false);
-  const imageUrl = getMarketImageUrl(market.id, market.category, market.country_filter, market.question, 1200, 300);
+  const [imgLoaded, setImgLoaded] = useState(false);
+  const imageUrl = getMarketImageUrl(market.id, market.category, market.country_filter, market.question, 1200, 400);
   const gradient = CATEGORY_GRADIENTS[market.category] || 'from-gray-600 to-gray-800';
 
   return (
     <div className="relative h-40 sm:h-48 w-full rounded-xl overflow-hidden mb-6">
-      {!imgError ? (
+      {/* Gradient placeholder */}
+      <div className={`absolute inset-0 bg-gradient-to-br ${gradient} flex items-center justify-center`}>
+        {!imgLoaded && !imgError && (
+          <div className="w-6 h-6 border-2 border-white/30 border-t-white/80 rounded-full animate-spin" />
+        )}
+        {imgError && (
+          <span className="text-6xl opacity-30">{CATEGORY_ICONS[market.category] || '\u{1F30E}'}</span>
+        )}
+      </div>
+      {!imgError && (
         <img
           src={imageUrl}
           alt=""
-          className="w-full h-full object-cover"
+          className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ${imgLoaded ? 'opacity-100' : 'opacity-0'}`}
           onError={() => setImgError(true)}
+          onLoad={() => setImgLoaded(true)}
           loading="eager"
         />
-      ) : (
-        <div className={`w-full h-full bg-gradient-to-br ${gradient} flex items-center justify-center`}>
-          <span className="text-6xl opacity-30">{CATEGORY_ICONS[market.category] || '\u{1F30E}'}</span>
-        </div>
       )}
       <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/10" />
     </div>

@@ -15,6 +15,7 @@ interface MarketCardProps {
 
 export default function MarketCard({ market, options, compact = false }: MarketCardProps) {
   const [imgError, setImgError] = useState(false);
+  const [imgLoaded, setImgLoaded] = useState(false);
 
   const closeDate = new Date(market.close_date);
   const now = new Date();
@@ -85,20 +86,26 @@ export default function MarketCard({ market, options, compact = false }: MarketC
   return (
     <Link href={`/market/${market.id}`}>
       <div className="bg-white rounded-xl border border-gray-200 hover:border-gray-300 hover:shadow-card-hover transition-all duration-200 cursor-pointer group overflow-hidden">
-        {/* Image Header */}
+        {/* AI-Generated Image Header */}
         <div className="relative h-36 w-full overflow-hidden">
-          {!imgError ? (
+          {/* Gradient placeholder (always visible behind image) */}
+          <div className={`absolute inset-0 bg-gradient-to-br ${gradient} flex items-center justify-center`}>
+            {!imgLoaded && !imgError && (
+              <div className="w-5 h-5 border-2 border-white/30 border-t-white/80 rounded-full animate-spin" />
+            )}
+            {imgError && (
+              <span className="text-4xl opacity-40">{CATEGORY_ICONS[market.category] || '\u{1F30E}'}</span>
+            )}
+          </div>
+          {!imgError && (
             <img
               src={imageUrl}
               alt=""
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+              className={`absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-all duration-500 ${imgLoaded ? 'opacity-100' : 'opacity-0'}`}
               onError={() => setImgError(true)}
+              onLoad={() => setImgLoaded(true)}
               loading="lazy"
             />
-          ) : (
-            <div className={`w-full h-full bg-gradient-to-br ${gradient} flex items-center justify-center`}>
-              <span className="text-4xl opacity-40">{CATEGORY_ICONS[market.category] || '\u{1F30E}'}</span>
-            </div>
           )}
           {/* Dark gradient overlay */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
