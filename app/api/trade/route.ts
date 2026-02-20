@@ -47,6 +47,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Market is already resolved' }, { status: 400 });
     }
 
+    // Block trading on expired markets
+    if (market.close_date && new Date(market.close_date) < new Date()) {
+      return NextResponse.json({ error: 'Market has closed and is awaiting resolution' }, { status: 400 });
+    }
+
     const { data: options, error: optionsError } = await supabase
       .from('market_options')
       .select('*')

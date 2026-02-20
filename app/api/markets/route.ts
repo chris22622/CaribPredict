@@ -1,10 +1,44 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { createClient as createServerClient } from '@supabase/supabase-js';
+
+const ADMIN_EMAILS = ['chrissanoleslie1990@gmail.com'];
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
+
+async function isAdmin(req: NextRequest): Promise<boolean> {
+  const authHeader = req.headers.get('authorization');
+  // Allow cron jobs with correct token
+  const cronHeader = req.headers.get('x-vercel-cron');
+  if (cronHeader) return true;
+
+  if (!authHeader?.startsWith('Bearer ')) {
+    // Check cookie-based auth
+    const cookieHeader = req.headers.get('cookie') || '';
+    try {
+      const { createServerClient: createSSRClient } = await import('@supabase/ssr');
+      // Fallback: extract token from cookies manually
+      const accessToken = cookieHeader.match(/sb-[^=]+-auth-token=([^;]+)/)?.[1];
+      if (!accessToken) return false;
+
+      const decoded = JSON.parse(decodeURIComponent(accessToken));
+      const token = Array.isArray(decoded) ? decoded[0] : decoded?.access_token || decoded;
+      if (!token || typeof token !== 'string') return false;
+
+      const { data: { user } } = await supabase.auth.getUser(token);
+      return !!user?.email && ADMIN_EMAILS.includes(user.email);
+    } catch {
+      return false;
+    }
+  }
+
+  const token = authHeader.replace('Bearer ', '');
+  const { data: { user } } = await supabase.auth.getUser(token);
+  return !!user?.email && ADMIN_EMAILS.includes(user.email);
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -39,6 +73,12 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    // Admin-only endpoint (except for cron jobs)
+    const adminCheck = await isAdmin(req);
+    if (!adminCheck) {
+      return NextResponse.json({ error: 'Unauthorized - admin access required' }, { status: 403 });
+    }
+
     const body = await req.json();
     const { question, description, country_filter, category, close_date, options, liquidity_parameter } = body;
 

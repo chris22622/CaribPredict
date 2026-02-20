@@ -22,12 +22,15 @@ interface MarketWithOptions {
   options: Array<{ id: string; label: string; probability: number }>;
 }
 
+const ADMIN_EMAILS = ['chrissanoleslie1990@gmail.com'];
+
 export default function AdminPage() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [markets, setMarkets] = useState<MarketWithOptions[]>([]);
   const [stats, setStats] = useState({ totalMarkets: 0, activeMarkets: 0, resolvedMarkets: 0, totalUsers: 0, totalTrades: 0, totalVolume: 0 });
   const [loading, setLoading] = useState(true);
+  const [unauthorized, setUnauthorized] = useState(false);
   const [resolveModal, setResolveModal] = useState<{ market: MarketWithOptions; optionId: string } | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'markets' | 'resolve' | 'questions' | 'create'>('overview');
   const [newMarket, setNewMarket] = useState({
@@ -41,8 +44,14 @@ export default function AdminPage() {
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
+    if (authLoading) return;
+    if (!user || !ADMIN_EMAILS.includes(user.email || '')) {
+      setUnauthorized(true);
+      setLoading(false);
+      return;
+    }
     loadAdmin();
-  }, []);
+  }, [user, authLoading]);
 
   const loadAdmin = async () => {
     setLoading(true);
@@ -196,6 +205,21 @@ export default function AdminPage() {
       setCreating(false);
     }
   };
+
+  if (unauthorized) {
+    return (
+      <div className="max-w-lg mx-auto px-4 py-20 text-center">
+        <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <XCircle size={32} className="text-red-500" />
+        </div>
+        <h1 className="text-xl font-bold text-gray-900 mb-2">Access Denied</h1>
+        <p className="text-sm text-gray-500 mb-6">You don't have permission to access the admin dashboard.</p>
+        <Link href="/" className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-200 transition-colors">
+          Back to Markets
+        </Link>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

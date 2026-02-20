@@ -15,6 +15,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
     }
 
+    if (amountSatoshis <= 0) {
+      return NextResponse.json({ error: 'Amount must be positive' }, { status: 400 });
+    }
+
     // Verify BTCPay is configured
     if (!process.env.BTCPAY_HOST || !process.env.BTCPAY_API_KEY || !process.env.BTCPAY_STORE_ID) {
       return NextResponse.json({ error: 'BTCPay not configured' }, { status: 500 });
@@ -34,20 +38,39 @@ export async function POST(req: NextRequest) {
     // Convert satoshis to BTC
     const amountBTC = amountSatoshis / 100000000;
 
-    // Create payout via BTCPay
-    const payout = await btcpayClient.createPayout(
-      bitcoinAddress,
-      amountBTC,
-      userId
-    );
+    // Step 1: Create payout via BTCPay FIRST
+    let payout;
+    try {
+      payout = await btcpayClient.createPayout(
+        bitcoinAddress,
+        amountBTC,
+        userId
+      );
+    } catch (payoutError: any) {
+      console.error('BTCPay payout creation failed:', payoutError);
+      return NextResponse.json(
+        { error: 'Failed to create payout. Your balance has not been affected.' },
+        { status: 500 }
+      );
+    }
 
-    // Deduct balance
-    await supabase
+    // Step 2: Only deduct balance AFTER payout is confirmed created
+    const { error: balanceError } = await supabase
       .from('users')
       .update({ balance_satoshis: user.balance_satoshis - amountSatoshis })
       .eq('id', userId);
 
-    // Record transaction
+    if (balanceError) {
+      console.error('Balance deduction failed after payout created:', balanceError);
+      // Log this for manual resolution - payout was created but balance wasn't deducted
+      console.error(`CRITICAL: Payout ${payout.id} created for user ${userId} but balance deduction failed. Manual fix needed.`);
+      return NextResponse.json(
+        { error: 'Withdrawal processing error. Please contact support.' },
+        { status: 500 }
+      );
+    }
+
+    // Step 3: Record transaction
     await supabase.from('transactions').insert({
       user_id: userId,
       type: 'withdrawal',

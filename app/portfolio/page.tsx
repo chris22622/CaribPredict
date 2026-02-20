@@ -114,17 +114,24 @@ export default function PortfolioPage() {
     );
   }
 
-  // Calculate total portfolio value
+  // Calculate total portfolio value (unrealized P&L from open positions)
   const totalPositionValue = positions.reduce((sum, pos) => {
     if (!pos.option) return sum;
-    return sum + pos.shares * pos.option.probability;
+    // Current market value = shares * current probability (in sats)
+    return sum + Math.round(pos.shares * pos.option.probability);
   }, 0);
 
   const totalCostBasis = positions.reduce((sum, pos) => {
-    return sum + pos.shares * pos.avg_price;
+    return sum + Math.round(pos.shares * pos.avg_price);
   }, 0);
 
-  const totalPnL = totalPositionValue - totalCostBasis;
+  // Realized P&L from payouts on resolved markets
+  const realizedPnL = transactions
+    .filter(tx => tx.type === 'payout' && tx.status === 'confirmed')
+    .reduce((sum, tx) => sum + tx.amount_satoshis, 0);
+
+  const unrealizedPnL = totalPositionValue - totalCostBasis;
+  const totalPnL = unrealizedPnL + realizedPnL;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">

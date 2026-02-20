@@ -44,7 +44,7 @@ export interface AdaptedMarket {
  */
 export async function fetchTrendingMarkets(
   limit: number = 100,
-  sort: string = '24-hour-volume'
+  sort: string = 'last-bet-time'
 ): Promise<ManifoldMarket[]> {
   try {
     const response = await fetch(

@@ -32,11 +32,19 @@ export default function LeaderboardPage() {
         .from('users')
         .select('id, username, balance_satoshis');
 
+      // Get payout transactions (from resolved markets)
+      const { data: payouts } = await supabase
+        .from('transactions')
+        .select('user_id, amount_satoshis')
+        .eq('type', 'payout')
+        .eq('status', 'confirmed');
+
       if (!trades || !users) return;
 
       const userMap = new Map(users.map(u => [u.id, u]));
       const leaderMap = new Map<string, LeaderboardEntry>();
 
+      // Calculate trade-based P&L: total spent on buys vs total received from sells
       trades.forEach(trade => {
         const existing = leaderMap.get(trade.user_id) || {
           user_id: trade.user_id,
@@ -47,11 +55,22 @@ export default function LeaderboardPage() {
         };
 
         existing.total_trades += 1;
-        existing.total_volume += trade.total_cost || 0;
+        existing.total_volume += Math.abs(trade.total_cost || 0);
+        // Buys cost money (negative P&L), sells return money (positive P&L)
         existing.total_pnl += trade.is_buy ? -(trade.total_cost || 0) : (trade.total_cost || 0);
 
         leaderMap.set(trade.user_id, existing);
       });
+
+      // Add payouts from resolved markets to P&L
+      if (payouts) {
+        payouts.forEach(payout => {
+          const existing = leaderMap.get(payout.user_id);
+          if (existing) {
+            existing.total_pnl += payout.amount_satoshis || 0;
+          }
+        });
+      }
 
       setLeaders(Array.from(leaderMap.values()));
     } catch (err) {

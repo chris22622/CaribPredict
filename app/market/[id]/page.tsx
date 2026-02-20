@@ -423,7 +423,7 @@ export default function MarketPage() {
           )}
 
           {/* Chart */}
-          <MarketChart options={options} />
+          <MarketChart options={options} marketId={market.id} />
         </div>
 
         {/* Right Column - Trading */}
