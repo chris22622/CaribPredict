@@ -26,20 +26,32 @@ export default function HomePage() {
   async function loadMarkets() {
     setLoading(true); setError('');
     try {
-      const { data: ms, error: mErr } = await supabase
-        .from('markets').select('*')
-        .eq('resolved', false)
-        .order('created_at', { ascending: false });
-      if (mErr) throw mErr;
-      const ids = (ms || []).map((m: Market) => m.id);
+      // Use /api/markets (service-role) for the markets list so the home page
+      // always works even if anon RLS denies SELECT on the markets table.
+      const res = await fetch('/api/markets?resolved=false');
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(errBody.error || `Markets API returned ${res.status}`);
+      }
+      const json = await res.json();
+      const ms: Market[] = json.markets || [];
+      if (ms.length === 0) { setMarkets([]); return; }
+      const ids = ms.map(m => m.id);
+      // Options table is anon-readable in the existing schema; keep the
+      // direct supabase call but log if it fails.
       const { data: os, error: oErr } = await supabase
         .from('market_options').select('*').in('market_id', ids);
-      if (oErr) throw oErr;
+      if (oErr) {
+        // eslint-disable-next-line no-console
+        console.warn('[CaribPredict] options query failed:', oErr.message);
+      }
       const byMarket: Record<string, MarketOption[]> = {};
       (os || []).forEach((o: MarketOption) => { (byMarket[o.market_id] ||= []).push(o); });
-      const cps = (ms as Market[]).map(m => toCpMarket(m, byMarket[m.id] || []));
+      const cps = ms.map(m => toCpMarket(m, byMarket[m.id] || []));
       setMarkets(cps);
     } catch (e: any) {
+      // eslint-disable-next-line no-console
+      console.error('[CaribPredict] loadMarkets failed:', e);
       setError(e.message || 'Failed to load markets');
     } finally { setLoading(false); }
   }

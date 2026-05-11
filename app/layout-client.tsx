@@ -73,17 +73,37 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
     return () => document.removeEventListener('keydown', onKey);
   }, []);
 
+  // After a UI rewrite the previously-installed service worker can keep
+  // serving stale JS chunks that no longer exist on the server, which shows
+  // up to users as "TypeError: Failed to fetch" plus dead buttons. Force
+  // every active worker to update and clean its caches on first visit.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!('serviceWorker' in navigator)) return;
+    navigator.serviceWorker.getRegistrations().then(regs => {
+      regs.forEach(reg => { reg.update().catch(() => { /* ignore */ }); });
+    }).catch(() => { /* ignore */ });
+  }, []);
+
   async function loadMarketsIndex() {
+    // Use the /api/markets server route (service-role, bypasses RLS) so the
+    // global search index always works even if anon RLS denies reads.
     try {
-      const { data: ms } = await supabaseAnon.from('markets').select('*').eq('resolved', false).limit(80);
-      const { data: os } = await supabaseAnon.from('market_options').select('*');
-      if (ms && os) {
-        const byMarket: Record<string, MarketOption[]> = {};
-        os.forEach((o: MarketOption) => { (byMarket[o.market_id] ||= []).push(o); });
-        const cps = (ms as Market[]).map(m => toCpMarket(m, byMarket[m.id] || []));
-        setAllMarkets(cps);
-      }
-    } catch {/* silent */}
+      const res = await fetch('/api/markets?resolved=false');
+      if (!res.ok) return;
+      const json = await res.json();
+      const ms: Market[] = json.markets || [];
+      if (ms.length === 0) { setAllMarkets([]); return; }
+      const ids = ms.map(m => m.id);
+      const { data: os } = await supabaseAnon.from('market_options').select('*').in('market_id', ids);
+      const byMarket: Record<string, MarketOption[]> = {};
+      (os || []).forEach((o: MarketOption) => { (byMarket[o.market_id] ||= []).push(o); });
+      const cps = ms.map(m => toCpMarket(m, byMarket[m.id] || []));
+      setAllMarkets(cps);
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.warn('[CaribPredict] loadMarketsIndex failed:', e);
+    }
   }
 
   async function loadBalance(uid: string) {
