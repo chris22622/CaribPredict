@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { supabase, getOrCreateUser } from '@/lib/supabase';
 import { Position, Trade, Market, MarketOption } from '@/lib/types';
 import {
-  toCpMarket, CpMarket, fmtUsd, fmtSats, satsToUsd,
+  toCpMarket, CpMarket, fmtUsdt, fmtUsdtFromSats, satsToUsd,
 } from '@/lib/cp-data';
 import { SunDot } from '@/components/cp/Icon';
 import { Thumb, Button, Avatar } from '@/components/cp/Primitives';
@@ -116,16 +116,18 @@ export default function PortfolioPage() {
         </div>
         <div style={{ position: 'relative' }}>
           <div style={{ fontSize: 11, color: 'var(--cp-text-on-ink-3)', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600 }}>Portfolio value</div>
-          <div className="cp-num cp-big-num" style={{ fontFamily: 'var(--cp-serif)', fontSize: 56, lineHeight: 1, marginTop: 8, letterSpacing: '-0.02em' }}>{fmtUsd(summary.valueUsd)}</div>
+          <div className="cp-num cp-big-num" style={{ fontFamily: 'var(--cp-serif)', fontSize: 56, lineHeight: 1, marginTop: 8, letterSpacing: '-0.02em' }}>{fmtUsdt(summary.valueUsd)}</div>
           <div className="cp-num" style={{ fontSize: 12, color: 'var(--cp-text-on-ink-3)', marginTop: 6 }}>
-            {fmtSats(positions.reduce((a, p) => a + p.value, 0))}
+            {fmtUsdtFromSats(positions.reduce((a, p) => a + p.value, 0))}
           </div>
         </div>
-        <PStat label="Total P&L" value={fmtUsd(summary.pnlUsd, { signed: true })} accent={pnlSign ? 'yes' : 'no'} sub={`${pnlSign ? '+' : ''}${Math.round((summary.pnlUsd / valueDenom) * 1000) / 10}% on positions`}/>
+        <PStat label="Total P&L" value={fmtUsdt(summary.pnlUsd, { signed: true })} accent={pnlSign ? 'yes' : 'no'} sub={`${pnlSign ? '+' : ''}${Math.round((summary.pnlUsd / valueDenom) * 1000) / 10}% on positions`}/>
         <PStat label="Open positions" value={String(positions.length)} sub={`${trades.length} trades`}/>
-        <PStat label="Cash" value={fmtUsd(summary.cashUsd)} sub={fmtSats(summary.cashSats)}
+        <PStat label="Cash" value={fmtUsdt(summary.cashUsd)} sub="TRC-20 wallet"
           trailing={<Button kind="sun" size="sm" icon="plus">Deposit</Button>}/>
       </header>
+
+      <WageringProgress wagered={0} required={summary.cashUsd * 5} hasDeposit={summary.cashUsd > 0}/>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 4, borderBottom: '1px solid var(--cp-line)', marginTop: 28 }}>
         {(['positions','history','watchlist','rewards'] as const).map(t => (
@@ -147,6 +149,52 @@ export default function PortfolioPage() {
         {tab === 'rewards' && <RewardsEmpty/>}
       </section>
     </main>
+  );
+}
+
+function WageringProgress({ wagered, required, hasDeposit }: { wagered: number; required: number; hasDeposit: boolean }) {
+  const pct = required > 0 ? Math.min(100, (wagered / required) * 100) : 0;
+  const done = required > 0 && wagered >= required;
+  return (
+    <div style={{
+      marginTop: 18, background: 'var(--cp-card)', borderRadius: 12,
+      border: '1px solid var(--cp-line)', padding: '14px 18px',
+      display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap',
+    }}>
+      <div style={{ flex: 1, minWidth: 220 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 6 }}>
+          <span style={{
+            fontSize: 11.5, color: 'var(--cp-text-3)', textTransform: 'uppercase',
+            letterSpacing: '0.06em', fontWeight: 600,
+          }}>
+            Wagering requirement
+          </span>
+          <span className="cp-num" style={{ fontSize: 12.5, color: 'var(--cp-text-2)' }}>
+            {hasDeposit
+              ? `${wagered.toFixed(2)} / ${required.toFixed(2)} USDT`
+              : 'Deposit USDT to unlock'}
+          </span>
+        </div>
+        <div style={{
+          height: 8, borderRadius: 999, background: 'var(--cp-page-2)',
+          overflow: 'hidden', boxShadow: 'inset 0 0 0 1px var(--cp-line)',
+        }}>
+          <div style={{
+            height: '100%', width: `${pct}%`,
+            background: done ? 'var(--cp-yes)' : 'var(--cp-sun)',
+            transition: 'width .3s ease',
+          }}/>
+        </div>
+        <div style={{ marginTop: 6, fontSize: 11.5, color: 'var(--cp-text-3)' }}>
+          {!hasDeposit && 'Bet 5× your first deposit to unlock withdrawals. Welcome bonus credits track separately at 10×.'}
+          {hasDeposit && !done && `Bet ${(required - wagered).toFixed(2)} USDT more to unlock withdrawals.`}
+          {done && '✓ All future withdrawals are instant.'}
+        </div>
+      </div>
+      <Button kind={done ? 'sun' : 'outline'} size="md" icon={done ? 'arrow-up' : 'minus'} disabled={!done}>
+        {done ? 'Withdraw' : 'Locked'}
+      </Button>
+    </div>
   );
 }
 
@@ -215,7 +263,7 @@ function PositionsTable({ rows }: { rows: EnrichedPosition[] }) {
             <div className="cp-num" style={{
               fontSize: 14, fontWeight: 600,
               color: r.pnl >= 0 ? 'var(--cp-yes-ink)' : 'var(--cp-no-ink)',
-            }}>{fmtSats(r.pnl)}</div>
+            }}>{fmtUsdtFromSats(r.pnl)}</div>
             <div className="cp-num" style={{
               fontSize: 11, color: r.pnl >= 0 ? 'var(--cp-yes)' : 'var(--cp-no)',
             }}>{r.pnlPct >= 0 ? '+' : ''}{Math.round(r.pnlPct * 100)}%</div>
@@ -261,7 +309,7 @@ function HistoryTable({ rows }: { rows: { trade: Trade; market: CpMarket }[] }) 
           <Link href={`/market/${market.id}`} style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'var(--cp-serif)', fontSize: 14.5, color: 'inherit', textDecoration: 'none' }}>{market.question}</Link>
           <div className="cp-num" style={{ textAlign: 'right' }}>{trade.shares.toLocaleString('en-US', { maximumFractionDigits: 1 })}</div>
           <div className="cp-num" style={{ textAlign: 'right' }}>{Math.round(trade.price * 100)}¢</div>
-          <div className="cp-num" style={{ textAlign: 'right' }}>{fmtSats(trade.total_cost)}</div>
+          <div className="cp-num" style={{ textAlign: 'right' }}>{fmtUsdtFromSats(trade.total_cost)}</div>
         </div>
       ))}
     </div>

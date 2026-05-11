@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import Icon, { Wordmark } from './Icon';
 import { Avatar, Button } from './Primitives';
-import { fmtUsd, satsToUsd } from '@/lib/cp-data';
+import { fmtUsdt, satsToUsd } from '@/lib/cp-data';
 
 interface TopNavProps {
   onSearch?: () => void;
@@ -118,9 +118,9 @@ function BalanceChip({ balanceSats }: { balanceSats: number }) {
         width: 22, height: 22, borderRadius: '50%',
         background: 'var(--cp-yes)', display: 'inline-flex',
         alignItems: 'center', justifyContent: 'center', color: '#fff',
-        fontSize: 11, fontWeight: 700,
-      }}>$</div>
-      <span style={{ fontSize: 13, color: 'var(--cp-text-on-ink)' }} className="cp-num">{fmtUsd(usd)}</span>
+        fontSize: 9.5, fontWeight: 700, letterSpacing: '-0.02em',
+      }}>₮</div>
+      <span style={{ fontSize: 13, color: 'var(--cp-text-on-ink)' }} className="cp-num">{fmtUsdt(usd)}</span>
     </div>
   );
 }

@@ -26,6 +26,7 @@ export const COUNTRIES: CpCountry[] = [
 ];
 
 export const CATEGORIES: CpCategory[] = [
+  { id: 'live',         name: 'Live',         glyph: 'flame' },
   { id: 'trending',     name: 'Trending',     glyph: 'flame' },
   { id: 'new',          name: 'New',          glyph: 'sparkle' },
   { id: 'politics',     name: 'Politics',     glyph: 'gavel',   dbName: 'Politics' },
@@ -66,12 +67,69 @@ export function fmtCompactUsd(n: number): string {
   if (n >= 1e3) return '$' + (n/1e3).toFixed(1) + 'K';
   return '$' + n.toFixed(0);
 }
+// Deprecated — internal-only. UI should display USDT via fmtUsdt or fmtUsdtFromSats.
 export function fmtSats(n: number): string { return Math.round(n).toLocaleString('en-US') + ' sats'; }
 export function fmtPct(p: number): string { return Math.round(p * 100) + '%'; }
 export function fmtCents(p: number): string { return Math.round(p * 100) + '¢'; }
 export function fmtCloseDate(iso: string): string {
   const d = new Date(iso);
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+// Display helpers for the USDT denomination. Internal storage is still in
+// sats (legacy) until the Phase 2 wallet migration; these convert at the
+// boundary so the UI never shows sats again.
+export function fmtUsdt(amountUsd: number, opts: { signed?: boolean } = {}): string {
+  const sign = amountUsd > 0 ? '+' : (amountUsd < 0 ? '−' : '');
+  const abs = Math.abs(amountUsd);
+  const s = abs.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return (opts.signed ? sign : '') + s + ' USDT';
+}
+export function fmtUsdtFromSats(sats: number, opts: { signed?: boolean } = {}): string {
+  return fmtUsdt(satsToUsd(sats), opts);
+}
+export function fmtCompactUsdt(amountUsd: number): string {
+  if (amountUsd >= 1e9) return (amountUsd / 1e9).toFixed(2) + 'B USDT';
+  if (amountUsd >= 1e6) return (amountUsd / 1e6).toFixed(2) + 'M USDT';
+  if (amountUsd >= 1e3) return (amountUsd / 1e3).toFixed(1) + 'K USDT';
+  return amountUsd.toFixed(0) + ' USDT';
+}
+
+// Decimal multiplier from probability (1 / p, rounded). Used for "65% (1.46×)" displays.
+export function multiplierFromProb(prob: number): string {
+  if (prob <= 0) return '∞';
+  return (1 / prob).toFixed(2) + '×';
+}
+
+// How urgent is a close time? Returns the color band the UI should use.
+export function urgencyForClose(closeIso: string): 'safe' | 'warning' | 'urgent' | 'closed' {
+  const remaining = new Date(closeIso).getTime() - Date.now();
+  if (remaining <= 0) return 'closed';
+  const mins = remaining / 60000;
+  if (mins < 30) return 'urgent';
+  if (mins < 120) return 'warning';
+  return 'safe';
+}
+
+// Human-readable countdown string ("Closes in 1h 22m" / "Closes in 14s" / "Closed").
+export function fmtCountdown(closeIso: string, now: number = Date.now()): string {
+  const ms = new Date(closeIso).getTime() - now;
+  if (ms <= 0) return 'Closed';
+  const totalSec = Math.floor(ms / 1000);
+  const days = Math.floor(totalSec / 86400);
+  const hours = Math.floor((totalSec % 86400) / 3600);
+  const mins = Math.floor((totalSec % 3600) / 60);
+  const secs = totalSec % 60;
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${mins}m`;
+  if (mins > 0) return `${mins}m ${secs}s`;
+  return `${secs}s`;
+}
+
+// "Closes in 2 hours" → seconds
+export function isLiveSoon(closeIso: string, withinSeconds: number = 7200): boolean {
+  const remaining = new Date(closeIso).getTime() - Date.now();
+  return remaining > 0 && remaining < withinSeconds * 1000;
 }
 
 export interface CpOutcome {

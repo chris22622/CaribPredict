@@ -8,6 +8,7 @@ import WalletModal from '@/components/WalletModal';
 import AuthModal from '@/components/AuthModal';
 import TopNav from '@/components/cp/TopNav';
 import SearchModal from '@/components/cp/SearchModal';
+import MobileBottomNav from '@/components/cp/MobileBottomNav';
 import { toCpMarket, CpMarket } from '@/lib/cp-data';
 import { Market, MarketOption } from '@/lib/types';
 
@@ -137,6 +138,8 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
       {children}
 
       <SearchModal open={searchOpen} onClose={() => setSearchOpen(false)} markets={allMarkets}/>
+
+      <MobileBottomNav isLoggedIn={!!user} onAccountClick={() => setAuthOpen(true)}/>
 
       {user && walletOpen && (
         <WalletModal

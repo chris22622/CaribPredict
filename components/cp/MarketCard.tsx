@@ -4,7 +4,8 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Icon from './Icon';
 import { Thumb } from './Primitives';
-import { CpMarket, getCountry, getCategory, fmtCompactUsd } from '@/lib/cp-data';
+import Countdown from './Countdown';
+import { CpMarket, getCountry, getCategory, fmtCompactUsdt, multiplierFromProb, satsToUsd } from '@/lib/cp-data';
 
 interface MarketCardProps {
   market: CpMarket;
@@ -52,13 +53,16 @@ export default function MarketCard({ market, density = 'comfortable', onOpen, bo
           }}>{market.question}</h3>
           <div style={{
             display: 'flex', alignItems: 'center', gap: 6, marginTop: 6,
-            fontSize: 11.5, color: 'var(--cp-text-3)',
+            fontSize: 11.5, color: 'var(--cp-text-3)', flexWrap: 'wrap',
           }}>
             <span>{market.countries.map(code => getCountry(code)?.flag).join(' ')}</span>
             <span>·</span>
             <span style={{ textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 500 }}>
               {getCategory(market.category)?.name}
             </span>
+          </div>
+          <div style={{ marginTop: 8 }}>
+            <Countdown closeIso={market.closeDate} size="sm"/>
           </div>
         </div>
         <button onClick={(e) => { e.stopPropagation(); onBookmark?.(market.id); }} style={{
@@ -97,7 +101,7 @@ export default function MarketCard({ market, density = 'comfortable', onOpen, bo
                 border: 0, cursor: 'pointer', fontWeight: 600, fontSize: 12.5,
               }}>
                 <span>Yes</span>
-                <span className="cp-num" style={{ fontWeight: 500, opacity: 0.85 }}>{o.yes}¢</span>
+                <span className="cp-num" style={{ fontWeight: 500, opacity: 0.85 }}>{multiplierFromProb(o.prob)}</span>
               </button>
               <button onClick={(e) => { e.stopPropagation(); router.push(`/market/${market.id}?o=${o.id}&side=NO`); }} style={{
                 display: 'inline-flex', alignItems: 'center', gap: 4,
@@ -106,7 +110,7 @@ export default function MarketCard({ market, density = 'comfortable', onOpen, bo
                 border: 0, cursor: 'pointer', fontWeight: 600, fontSize: 12.5,
               }}>
                 <span>No</span>
-                <span className="cp-num" style={{ fontWeight: 500, opacity: 0.85 }}>{o.no}¢</span>
+                <span className="cp-num" style={{ fontWeight: 500, opacity: 0.85 }}>{multiplierFromProb(Math.max(0.01, 1 - o.prob))}</span>
               </button>
             </div>
           ))
@@ -123,15 +127,11 @@ export default function MarketCard({ market, density = 'comfortable', onOpen, bo
         marginTop: 'auto', paddingTop: 8, borderTop: '1px dashed var(--cp-line)',
         fontSize: 11.5, color: 'var(--cp-text-3)',
       }}>
-        <span className="cp-num">{fmtCompactUsd(market.volumeUsd)} volume</span>
+        <span className="cp-num">Pool {fmtCompactUsdt(market.volumeUsd)}</span>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
             <Icon name="comment" size={12}/>
             <span className="cp-num">{market.commentCount}</span>
-          </span>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-            <Icon name="flame" size={12}/>
-            <span style={{ textTransform: 'uppercase', letterSpacing: '0.04em' }}>Live</span>
           </span>
         </span>
       </footer>
@@ -142,31 +142,35 @@ export default function MarketCard({ market, density = 'comfortable', onOpen, bo
 function BinaryOutcomeBlock({ market }: { market: CpMarket }) {
   const router = useRouter();
   const o = market.outcomes[0];
+  const yesPct = Math.round(o.prob * 100);
+  const noPct = 100 - yesPct;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingTop: 4 }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
         <span className="cp-num" style={{
           fontSize: 28, fontFamily: 'var(--cp-serif)', fontWeight: 400,
           color: 'var(--cp-yes-ink)', letterSpacing: '-0.02em',
-        }}>{Math.round(o.prob * 100)}%</span>
+        }}>{yesPct}%</span>
         <span style={{ fontSize: 12, color: 'var(--cp-text-3)' }}>chance · {o.label}</span>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
         <button onClick={(e) => { e.stopPropagation(); router.push(`/market/${market.id}?o=${o.id}&side=YES`); }} style={{
-          height: 36, borderRadius: 8, background: 'var(--cp-yes-soft)',
+          height: 38, borderRadius: 8, background: 'var(--cp-yes-soft)',
           color: 'var(--cp-yes-ink)', border: 0, cursor: 'pointer',
           fontWeight: 600, fontSize: 13,
           display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
         }}>
-          Buy Yes <span className="cp-num" style={{ fontWeight: 500 }}>{o.yes}¢</span>
+          Yes <span className="cp-num" style={{ fontWeight: 500 }}>{yesPct}%</span>
+          <span className="cp-num" style={{ fontWeight: 400, opacity: 0.7 }}>({multiplierFromProb(o.prob)})</span>
         </button>
         <button onClick={(e) => { e.stopPropagation(); router.push(`/market/${market.id}?o=${o.id}&side=NO`); }} style={{
-          height: 36, borderRadius: 8, background: 'var(--cp-no-soft)',
+          height: 38, borderRadius: 8, background: 'var(--cp-no-soft)',
           color: 'var(--cp-no-ink)', border: 0, cursor: 'pointer',
           fontWeight: 600, fontSize: 13,
           display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
         }}>
-          Buy No <span className="cp-num" style={{ fontWeight: 500 }}>{o.no}¢</span>
+          No <span className="cp-num" style={{ fontWeight: 500 }}>{noPct}%</span>
+          <span className="cp-num" style={{ fontWeight: 400, opacity: 0.7 }}>({multiplierFromProb(Math.max(0.01, 1 - o.prob))})</span>
         </button>
       </div>
     </div>

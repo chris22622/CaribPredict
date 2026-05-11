@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
 import { calculateBuyCost, calculateSellPayout, MarketState } from '@/lib/amm';
-import { CpMarket, fmtUsd, fmtSats, satsToUsd, usdToSats } from '@/lib/cp-data';
+import { CpMarket, fmtUsdt, fmtUsdtFromSats, satsToUsd, usdToSats, multiplierFromProb } from '@/lib/cp-data';
 
 interface OrderPanelProps {
   market: CpMarket;
@@ -87,7 +87,7 @@ export default function OrderPanel({ market, userId, userBalanceSats, userPositi
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Trade failed');
-      toast.success(`${mode === 'BUY' ? 'Bought' : 'Sold'} ${quote.shares.toFixed(1)} shares · ${fmtSats(quote.costSats)}`);
+      toast.success(`${mode === 'BUY' ? 'Bought' : 'Sold'} ${quote.shares.toFixed(1)} shares · ${fmtUsdtFromSats(quote.costSats)}`);
       onTradeComplete?.();
     } catch (e: any) {
       toast.error(e.message || 'Trade failed');
@@ -165,7 +165,7 @@ export default function OrderPanel({ market, userId, userBalanceSats, userPositi
             Amount
           </label>
           <span style={{ fontSize: 11.5, color: 'var(--cp-text-3)' }}>
-            Balance <span className="cp-num">{fmtUsd(balanceUsd)}</span>
+            Balance <span className="cp-num">{fmtUsdt(balanceUsd)}</span>
           </span>
         </div>
         <div style={{
@@ -173,7 +173,6 @@ export default function OrderPanel({ market, userId, userBalanceSats, userPositi
           background: 'var(--cp-card-sub)', borderRadius: 10,
           border: '1px solid var(--cp-line)', padding: '8px 12px',
         }}>
-          <span className="cp-num" style={{ fontSize: 22, fontWeight: 600 }}>$</span>
           <input
             type="text" inputMode="decimal" value={amountUsd}
             onChange={e => setAmountUsd(Math.max(0, parseFloat(e.target.value.replace(/[^\d.]/g,'')) || 0))}
@@ -183,8 +182,8 @@ export default function OrderPanel({ market, userId, userBalanceSats, userPositi
               fontSize: 22, fontWeight: 600, color: 'var(--cp-text)',
             }}
           />
-          <span style={{ fontSize: 11, color: 'var(--cp-text-3)' }} className="cp-num">
-            {fmtSats(usdToSats(amountUsd))}
+          <span style={{ fontSize: 13, color: 'var(--cp-text-3)', fontWeight: 600 }} className="cp-num">
+            USDT
           </span>
         </div>
         <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
@@ -209,12 +208,11 @@ export default function OrderPanel({ market, userId, userBalanceSats, userPositi
           padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 6,
           fontSize: 12.5, color: 'var(--cp-text-2)',
         }}>
-          <Row k="Avg price" v={`${priceCents}¢`}/>
-          <Row k="Shares" v={quote.shares.toLocaleString('en-US', { maximumFractionDigits: 1 })}/>
-          <Row k="Cost" v={fmtSats(quote.costSats)}/>
-          <Row k="Potential return" v={fmtUsd(potentialUsd)} hi={profitUsd > 0 ? 'yes' : undefined}/>
+          <Row k="Odds" v={`${priceCents}% · ${multiplierFromProb(side === 'YES' ? outcome.prob : (1 - outcome.prob))}`}/>
+          <Row k="Stake" v={fmtUsdt(amountUsd)}/>
+          <Row k="Potential return" v={fmtUsdt(potentialUsd)} hi={profitUsd > 0 ? 'yes' : undefined}/>
           <div style={{ height: 1, background: 'var(--cp-line)', margin: '2px 0' }}/>
-          <Row k="If you're right" v={`${fmtUsd(profitUsd, { signed: true })}  ·  ${profitUsd >= 0 ? '+' : ''}${amountUsd > 0 ? Math.round((profitUsd / amountUsd) * 100) : 0}%`} hi="yes"/>
+          <Row k="If you're right" v={`${fmtUsdt(profitUsd, { signed: true })}  ·  ${profitUsd >= 0 ? '+' : ''}${amountUsd > 0 ? Math.round((profitUsd / amountUsd) * 100) : 0}%`} hi="yes"/>
         </div>
       )}
 
@@ -235,8 +233,8 @@ export default function OrderPanel({ market, userId, userBalanceSats, userPositi
       </button>
 
       <div style={{ fontSize: 11, color: 'var(--cp-text-3)', textAlign: 'center', lineHeight: 1.4 }}>
-        Trades execute instantly at market price.
-        <br/>Settled in satoshis when the market resolves.
+        Matched against another bettor. Winners take 95% of pool.
+        <br/>Settled in USDT (TRC-20) the moment the market closes.
       </div>
     </aside>
   );

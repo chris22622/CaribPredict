@@ -7,10 +7,12 @@ import { supabase, getOrCreateUser } from '@/lib/supabase';
 import { Market, MarketOption, Position, Trade, User } from '@/lib/types';
 import {
   toCpMarket, CpMarket, getCountry, getCategory,
-  fmtCompactUsd, fmtSats, satsToUsd, fmtUsd, genSyntheticHistory, seedFromId,
+  fmtCompactUsdt, fmtUsdtFromSats, satsToUsd, genSyntheticHistory, seedFromId,
+  multiplierFromProb,
 } from '@/lib/cp-data';
 import Icon from '@/components/cp/Icon';
 import { Thumb, Button, Avatar } from '@/components/cp/Primitives';
+import Countdown from '@/components/cp/Countdown';
 import PriceChart from '@/components/cp/PriceChart';
 import OrderPanel from '@/components/cp/OrderPanel';
 import { useCp } from '@/app/layout-client';
@@ -123,13 +125,13 @@ export default function MarketPage() {
             <Thumb market={market} size={84} radius={14}/>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{
-                display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6,
-                fontSize: 11.5, color: 'var(--cp-text-3)',
-                textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600,
+                display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, flexWrap: 'wrap',
               }}>
-                <span>{getCategory(market.category)?.name}</span>
-                <span style={{ opacity: 0.5 }}>·</span>
-                <span>Closes {market.closes}</span>
+                <span style={{
+                  fontSize: 11.5, color: 'var(--cp-text-3)',
+                  textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600,
+                }}>{getCategory(market.category)?.name}</span>
+                <Countdown closeIso={market.closeDate} size="md" prefix="Closes in"/>
               </div>
               <h1 className="cp-detail-h1" style={{
                 margin: 0, fontFamily: 'var(--cp-serif)', fontWeight: 400,
@@ -140,8 +142,8 @@ export default function MarketPage() {
                 fontSize: 12.5, color: 'var(--cp-text-3)',
               }}>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                  <span className="cp-num" style={{ fontWeight: 600, color: 'var(--cp-text-2)' }}>{fmtCompactUsd(market.volumeUsd)}</span>
-                  <span>volume</span>
+                  <span className="cp-num" style={{ fontWeight: 600, color: 'var(--cp-text-2)' }}>{fmtCompactUsdt(market.volumeUsd)}</span>
+                  <span>pool</span>
                 </span>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                   {market.countries.map(code => (
@@ -170,6 +172,9 @@ export default function MarketPage() {
                     fontFamily: 'var(--cp-serif)', fontSize: 56, fontWeight: 400,
                     color: 'var(--cp-yes-ink)', letterSpacing: '-0.02em', lineHeight: 1,
                   }}>{Math.round(top.prob * 100)}%</span>
+                  <span className="cp-num" style={{
+                    fontSize: 16, color: 'var(--cp-text-3)', fontWeight: 500,
+                  }}>{multiplierFromProb(top.prob)}</span>
                 </div>
               </div>
               <div className="cp-range-buttons" style={{ display: 'inline-flex', background: 'var(--cp-page-2)', borderRadius: 8, padding: 3 }}>
@@ -193,18 +198,18 @@ export default function MarketPage() {
           }}>
             <h3 style={{ margin: '0 0 14px', fontFamily: 'var(--cp-serif)', fontWeight: 400, fontSize: 22, letterSpacing: '-0.01em' }}>Outcomes</h3>
             <div className="cp-outcomes-header" style={{
-              display: 'grid', gridTemplateColumns: '1fr 80px 100px 100px',
+              display: 'grid', gridTemplateColumns: '1fr 110px 110px 110px',
               fontSize: 11, color: 'var(--cp-text-3)', textTransform: 'uppercase', letterSpacing: '0.06em',
               paddingBottom: 8, borderBottom: '1px solid var(--cp-line)',
             }}>
               <div>Outcome</div>
               <div style={{ textAlign: 'right' }}>Chance</div>
-              <div style={{ textAlign: 'right' }}>Buy Yes</div>
-              <div style={{ textAlign: 'right' }}>Buy No</div>
+              <div style={{ textAlign: 'right' }}>Yes</div>
+              <div style={{ textAlign: 'right' }}>No</div>
             </div>
             {market.outcomes.map((o, i) => (
               <div key={o.id} className="cp-outcomes-row" style={{
-                display: 'grid', gridTemplateColumns: '1fr 80px 100px 100px',
+                display: 'grid', gridTemplateColumns: '1fr 110px 110px 110px',
                 alignItems: 'center', padding: '14px 0',
                 borderBottom: i < market.outcomes.length - 1 ? '1px solid var(--cp-line)' : 0,
               }}>
@@ -221,16 +226,24 @@ export default function MarketPage() {
                 <div style={{ textAlign: 'right' }}>
                   <button onClick={() => router.replace(`?o=${o.id}&side=YES`)} style={{
                     background: 'var(--cp-yes-soft)', color: 'var(--cp-yes-ink)',
-                    border: 0, borderRadius: 6, height: 30, padding: '0 12px',
+                    border: 0, borderRadius: 6, height: 32, padding: '0 10px',
                     fontWeight: 600, fontSize: 12.5, cursor: 'pointer',
-                  }} className="cp-num">{o.yes}¢</button>
+                    display: 'inline-flex', alignItems: 'center', gap: 5,
+                  }} className="cp-num">
+                    <span>{Math.round(o.prob * 100)}%</span>
+                    <span style={{ opacity: 0.7, fontWeight: 500 }}>{multiplierFromProb(o.prob)}</span>
+                  </button>
                 </div>
                 <div style={{ textAlign: 'right' }}>
                   <button onClick={() => router.replace(`?o=${o.id}&side=NO`)} style={{
                     background: 'var(--cp-no-soft)', color: 'var(--cp-no-ink)',
-                    border: 0, borderRadius: 6, height: 30, padding: '0 12px',
+                    border: 0, borderRadius: 6, height: 32, padding: '0 10px',
                     fontWeight: 600, fontSize: 12.5, cursor: 'pointer',
-                  }} className="cp-num">{o.no}¢</button>
+                    display: 'inline-flex', alignItems: 'center', gap: 5,
+                  }} className="cp-num">
+                    <span>{100 - Math.round(o.prob * 100)}%</span>
+                    <span style={{ opacity: 0.7, fontWeight: 500 }}>{multiplierFromProb(Math.max(0.01, 1 - o.prob))}</span>
+                  </button>
                 </div>
               </div>
             ))}
@@ -351,7 +364,7 @@ function ActivityList({ trades, options }: { trades: Trade[]; options: { id: str
                 color: side === 'YES' ? 'var(--cp-yes-ink)' : 'var(--cp-no-ink)',
               }}>{side}</span>
             </div>
-            <div className="cp-num" style={{ fontSize: 12.5, color: 'var(--cp-text-2)' }}>{fmtSats(t.total_cost)}</div>
+            <div className="cp-num" style={{ fontSize: 12.5, color: 'var(--cp-text-2)' }}>{fmtUsdtFromSats(t.total_cost)}</div>
             <div style={{ fontSize: 11.5, color: 'var(--cp-text-3)' }}>{new Date(t.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
           </div>
         );

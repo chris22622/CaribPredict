@@ -4,8 +4,8 @@ import { useEffect, useState, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Market, MarketOption } from '@/lib/types';
 import {
-  toCpMarket, CpMarket, categoryIdFromDb, getCountry,
-  fmtCompactUsd, COUNTRIES,
+  toCpMarket, CpMarket, getCountry,
+  fmtCompactUsdt, COUNTRIES, isLiveSoon,
 } from '@/lib/cp-data';
 import MarketCard from '@/components/cp/MarketCard';
 import CategoryStrip from '@/components/cp/CategoryStrip';
@@ -20,6 +20,14 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [bookmarks, setBookmarks] = useState<Set<string>>(new Set());
+
+  // Read ?live=1 (from MobileBottomNav) on the client so the page stays
+  // statically prerenderable without a Suspense boundary.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('live') === '1') setCategory('live');
+  }, []);
 
   useEffect(() => { loadMarkets(); }, []);
 
@@ -53,7 +61,10 @@ export default function HomePage() {
 
   const filtered = useMemo(() => {
     let list = markets.slice();
-    if (category === 'new') {
+    if (category === 'live') {
+      list = list.filter(m => isLiveSoon(m.closeDate, 7200));
+      list.sort((a, b) => new Date(a.closeDate).getTime() - new Date(b.closeDate).getTime());
+    } else if (category === 'new') {
       list = list.slice().reverse();
     } else if (category !== 'trending') {
       list = list.filter(m => m.category === category);
@@ -214,7 +225,7 @@ function Hero() {
           <em style={{ color: 'var(--cp-sun)' }}>between the islands.</em>
         </h1>
         <p style={{ margin: '0 0 18px', color: 'var(--cp-text-on-ink-2)', maxWidth: 480, fontSize: 14.5, lineHeight: 1.55 }}>
-          Elections, hurricane seasons, Carnival bands, Test series. Live odds priced in sats and dollars, settled the moment reality does.
+          Crypto, sports, weather, Carnival. Match against another bettor, win up to 95% of the pool, settle in USDT the moment reality does.
         </p>
         <div style={{ display: 'flex', gap: 10 }}>
           <Button kind="sun" size="lg">Explore markets</Button>
@@ -227,9 +238,9 @@ function Hero() {
         display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 14,
       }}>
         <Stat label="Open markets" value="Live" delta="updates daily"/>
-        <Stat label="24h volume" value={fmtCompactUsd(0)} delta="loading"/>
+        <Stat label="24h volume" value={fmtCompactUsdt(0)} delta="exchange-matched"/>
         <Stat label="CARICOM nations" value="15" delta="all covered"/>
-        <Stat label="Settled in" value="sats" delta="Bitcoin native"/>
+        <Stat label="Settled in" value="USDT" delta="TRC-20 native"/>
       </div>
     </div>
   );
