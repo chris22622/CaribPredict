@@ -78,7 +78,7 @@ export default function HomePage() {
     <>
       <CategoryStrip active={category} onChange={setCategory} country={country} onCountry={setCountry}/>
 
-      <main style={{ maxWidth: 1400, margin: '0 auto', padding: '28px', width: '100%' }}>
+      <main className="cp-page-pad" style={{ maxWidth: 1400, margin: '0 auto', padding: '28px', width: '100%' }}>
         <Hero/>
 
         <section style={{ marginTop: 28 }}>
@@ -124,7 +124,7 @@ export default function HomePage() {
           )}
 
           {!loading && filtered.length > 0 && (
-            <div style={{
+            <div className="cp-grid-3" style={{
               display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)',
               gap: 16, marginTop: 16,
             }}>
@@ -140,7 +140,7 @@ export default function HomePage() {
         {byCountryStats.length > 0 && (
           <section style={{ marginTop: 36 }}>
             <SectionHead title="By country" subtitle="Most active markets per CARICOM state"/>
-            <div style={{
+            <div className="cp-grid-4" style={{
               display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginTop: 14,
             }}>
               {byCountryStats.map(s => (
@@ -180,7 +180,7 @@ export default function HomePage() {
 
 function Hero() {
   return (
-    <div style={{
+    <div className="cp-hero" style={{
       background: 'var(--cp-ink)', color: 'var(--cp-text-on-ink)',
       borderRadius: 16, padding: 28,
       display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 28, alignItems: 'center',
@@ -198,7 +198,7 @@ function Hero() {
             background: 'var(--cp-yes)', marginRight: 8, verticalAlign: 'middle' }}/>
           Markets, made for the Caribbean
         </div>
-        <h1 style={{
+        <h1 className="cp-hero-h1" style={{
           margin: '12px 0 8px', fontFamily: 'var(--cp-serif)', fontWeight: 400,
           fontSize: 46, lineHeight: 1.04, letterSpacing: '-0.02em',
           color: 'var(--cp-text-on-ink)',

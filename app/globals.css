@@ -110,6 +110,70 @@ html, body {
   }
 }
 
+/* ──────────────────────────────────────────────────────────────
+   Responsive breakpoints — overrides for the inline-styled cp/*
+   components so they collapse cleanly on tablet and phone.
+   ────────────────────────────────────────────────────────────── */
+@media (max-width: 1024px) {
+  .cp-page-pad        { padding: 20px 16px !important; }
+  .cp-page-pad-tight  { padding: 16px !important; }
+  .cp-grid-3          { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .cp-grid-4          { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .cp-detail-grid     { grid-template-columns: 1fr !important; gap: 20px !important; }
+  .cp-detail-aside    { position: static !important; top: auto !important; }
+  .cp-portfolio-grid  { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; padding: 18px !important; gap: 14px !important; }
+  .cp-hero            { grid-template-columns: 1fr !important; gap: 20px !important; padding: 22px !important; }
+  .cp-hero-h1         { font-size: 32px !important; }
+  .cp-big-num         { font-size: 38px !important; }
+  .cp-topnav-routes   { display: none !important; }
+  .cp-topnav-deposit-label { display: none !important; }
+  .cp-detail-h1       { font-size: 26px !important; }
+  .cp-detail-thumb-row { gap: 12px !important; }
+  .cp-outcomes-header,
+  .cp-outcomes-row    {
+    grid-template-columns: 1fr auto !important;
+    column-gap: 8px !important;
+  }
+  .cp-outcomes-header > :not(:first-child):not(:nth-child(2)),
+  .cp-outcomes-row > :not(:first-child):not(:nth-child(2)) {
+    display: none !important;
+  }
+  .cp-positions-header,
+  .cp-positions-row   {
+    grid-template-columns: 1.6fr 70px 90px !important;
+    column-gap: 10px !important;
+  }
+  .cp-positions-header > :nth-child(n+4),
+  .cp-positions-row    > :nth-child(n+4) {
+    display: none !important;
+  }
+  .cp-history-header,
+  .cp-history-row     {
+    grid-template-columns: 90px 1fr 80px !important;
+    column-gap: 10px !important;
+  }
+  .cp-history-header > :nth-child(n+4),
+  .cp-history-row    > :nth-child(n+4) {
+    display: none !important;
+  }
+}
+@media (max-width: 640px) {
+  .cp-page-pad        { padding: 16px 12px !important; }
+  .cp-grid-3,
+  .cp-grid-4          { grid-template-columns: 1fr !important; }
+  .cp-portfolio-grid  { grid-template-columns: 1fr !important; padding: 16px !important; }
+  .cp-portfolio-grid > :first-child { font-size: 36px !important; }
+  .cp-topnav-search-text { display: none !important; }
+  .cp-topnav-balance     { display: none !important; }
+  .cp-topnav-kbd         { display: none !important; }
+  .cp-hero-h1            { font-size: 26px !important; line-height: 1.1 !important; }
+  .cp-big-num            { font-size: 30px !important; }
+  .cp-detail-h1          { font-size: 22px !important; }
+  .cp-detail-pct-big     { font-size: 40px !important; }
+  .cp-section-pad        { padding: 14px !important; }
+  .cp-range-buttons      { flex-wrap: wrap !important; }
+}
+
 /* Legacy component classes kept so older pages compile */
 @layer components {
   .btn-trade {

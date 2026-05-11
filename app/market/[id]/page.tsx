@@ -99,7 +99,7 @@ export default function MarketPage() {
   const defaultSide = (search.get('side') as 'YES' | 'NO') || 'YES';
 
   return (
-    <main style={{ maxWidth: 1280, margin: '0 auto', padding: '24px 28px 40px', width: '100%' }}>
+    <main className="cp-page-pad" style={{ maxWidth: 1280, margin: '0 auto', padding: '24px 28px 40px', width: '100%' }}>
       <div style={{
         display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: 'var(--cp-text-3)',
         marginBottom: 14,
@@ -117,7 +117,7 @@ export default function MarketPage() {
         <span style={{ color: 'var(--cp-text-2)' }}>{market.id.slice(0, 8)}</span>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: 28, alignItems: 'start' }}>
+      <div className="cp-detail-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: 28, alignItems: 'start' }}>
         <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 20 }}>
           <header style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
             <Thumb market={market} size={84} radius={14}/>
@@ -131,7 +131,7 @@ export default function MarketPage() {
                 <span style={{ opacity: 0.5 }}>·</span>
                 <span>Closes {market.closes}</span>
               </div>
-              <h1 style={{
+              <h1 className="cp-detail-h1" style={{
                 margin: 0, fontFamily: 'var(--cp-serif)', fontWeight: 400,
                 fontSize: 36, lineHeight: 1.1, letterSpacing: '-0.015em',
               }}>{market.question}</h1>
@@ -166,13 +166,13 @@ export default function MarketPage() {
                   {top.label}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-                  <span className="cp-num" style={{
+                  <span className="cp-num cp-detail-pct-big" style={{
                     fontFamily: 'var(--cp-serif)', fontSize: 56, fontWeight: 400,
                     color: 'var(--cp-yes-ink)', letterSpacing: '-0.02em', lineHeight: 1,
                   }}>{Math.round(top.prob * 100)}%</span>
                 </div>
               </div>
-              <div style={{ display: 'inline-flex', background: 'var(--cp-page-2)', borderRadius: 8, padding: 3 }}>
+              <div className="cp-range-buttons" style={{ display: 'inline-flex', background: 'var(--cp-page-2)', borderRadius: 8, padding: 3 }}>
                 {(['1H','6H','1D','1W','1M','ALL'] as const).map(r => (
                   <button key={r} onClick={() => setRange(r)} style={{
                     height: 28, padding: '0 10px', borderRadius: 6, border: 0, cursor: 'pointer',
@@ -192,7 +192,7 @@ export default function MarketPage() {
             padding: 20, boxShadow: 'var(--cp-shadow-card)',
           }}>
             <h3 style={{ margin: '0 0 14px', fontFamily: 'var(--cp-serif)', fontWeight: 400, fontSize: 22, letterSpacing: '-0.01em' }}>Outcomes</h3>
-            <div style={{
+            <div className="cp-outcomes-header" style={{
               display: 'grid', gridTemplateColumns: '1fr 80px 100px 100px',
               fontSize: 11, color: 'var(--cp-text-3)', textTransform: 'uppercase', letterSpacing: '0.06em',
               paddingBottom: 8, borderBottom: '1px solid var(--cp-line)',
@@ -203,7 +203,7 @@ export default function MarketPage() {
               <div style={{ textAlign: 'right' }}>Buy No</div>
             </div>
             {market.outcomes.map((o, i) => (
-              <div key={o.id} style={{
+              <div key={o.id} className="cp-outcomes-row" style={{
                 display: 'grid', gridTemplateColumns: '1fr 80px 100px 100px',
                 alignItems: 'center', padding: '14px 0',
                 borderBottom: i < market.outcomes.length - 1 ? '1px solid var(--cp-line)' : 0,
@@ -297,7 +297,7 @@ export default function MarketPage() {
           )}
         </div>
 
-        <div style={{ position: 'sticky', top: 88, alignSelf: 'start' }}>
+        <div className="cp-detail-aside" style={{ position: 'sticky', top: 88, alignSelf: 'start' }}>
           <OrderPanel
             market={market}
             userId={dbUser?.id}

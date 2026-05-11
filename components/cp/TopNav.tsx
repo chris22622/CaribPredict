@@ -34,11 +34,11 @@ export default function TopNav({ onSearch, balance, onWalletClick, onAvatarClick
         background: 'linear-gradient(90deg, transparent, rgba(232,165,60,0.45), transparent)',
         pointerEvents: 'none',
       }}/>
-      <div style={{
+      <div className="cp-topnav-inner" style={{
         maxWidth: 1400, margin: '0 auto',
         padding: '12px 28px',
         display: 'grid', gridTemplateColumns: 'auto 1fr auto',
-        alignItems: 'center', gap: 20,
+        alignItems: 'center', gap: 12,
       }}>
         <Link href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}>
           <Wordmark size={24} color="var(--cp-text-on-ink)"/>
@@ -47,14 +47,14 @@ export default function TopNav({ onSearch, balance, onWalletClick, onAvatarClick
         <button onClick={onSearch} style={{
           display: 'flex', alignItems: 'center', gap: 10,
           background: 'rgba(255,255,255,0.06)', border: '1px solid var(--cp-ink-line)',
-          borderRadius: 999, padding: '0 14px', height: 38, width: '100%',
+          borderRadius: 999, padding: '0 12px', height: 38, width: '100%',
           maxWidth: 460, justifySelf: 'center',
           color: 'var(--cp-text-on-ink-3)', cursor: 'pointer',
           fontFamily: 'var(--cp-sans)',
         }}>
           <Icon name="search" size={16}/>
-          <span style={{ flex: 1, textAlign: 'left', fontSize: 13.5 }}>Search markets, traders, places…</span>
-          <span style={{
+          <span className="cp-topnav-search-text" style={{ flex: 1, textAlign: 'left', fontSize: 13.5 }}>Search markets, traders, places…</span>
+          <span className="cp-topnav-kbd" style={{
             display: 'inline-flex', alignItems: 'center', gap: 3,
             padding: '2px 6px', borderRadius: 4,
             background: 'rgba(255,255,255,0.06)',
@@ -63,12 +63,20 @@ export default function TopNav({ onSearch, balance, onWalletClick, onAvatarClick
           }}>⌘K</span>
         </button>
 
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-          <RouteLink active={active === 'home'} label="Markets" onClick={() => router.push('/')}/>
-          <RouteLink active={active === 'portfolio'} label="Portfolio" onClick={() => router.push('/profile')}/>
-          <RouteLink active={active === 'activity'} label="Activity" onClick={() => router.push('/leaderboard')}/>
-          {balance !== undefined && <BalanceChip balanceSats={balance}/>}
-          <Button kind="sun" size="md" icon="plus" onClick={onWalletClick}>Deposit</Button>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <span className="cp-topnav-routes" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <RouteLink active={active === 'home'} label="Markets" onClick={() => router.push('/')}/>
+            <RouteLink active={active === 'portfolio'} label="Portfolio" onClick={() => router.push('/profile')}/>
+            <RouteLink active={active === 'activity'} label="Activity" onClick={() => router.push('/leaderboard')}/>
+          </span>
+          {balance !== undefined && (
+            <span className="cp-topnav-balance" style={{ display: 'inline-flex' }}>
+              <BalanceChip balanceSats={balance}/>
+            </span>
+          )}
+          <Button kind="sun" size="md" icon="plus" onClick={onWalletClick}>
+            <span className="cp-topnav-deposit-label">Deposit</span>
+          </Button>
           <button onClick={onAvatarClick} style={{ background: 'transparent', border: 0, padding: 0, cursor: 'pointer' }}>
             <Avatar name={isLoggedIn ? 'You' : '?'} size={32} tone="ink"/>
           </button>

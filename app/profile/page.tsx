@@ -105,8 +105,8 @@ export default function PortfolioPage() {
   const valueDenom = summary.valueUsd > 0 ? summary.valueUsd : 1;
 
   return (
-    <main style={{ maxWidth: 1280, margin: '0 auto', padding: '28px', width: '100%' }}>
-      <header style={{
+    <main className="cp-page-pad" style={{ maxWidth: 1280, margin: '0 auto', padding: '28px', width: '100%' }}>
+      <header className="cp-portfolio-grid" style={{
         display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr 1fr', gap: 18,
         background: 'var(--cp-ink)', color: 'var(--cp-text-on-ink)',
         borderRadius: 16, padding: '24px 28px', position: 'relative', overflow: 'hidden',
@@ -116,7 +116,7 @@ export default function PortfolioPage() {
         </div>
         <div style={{ position: 'relative' }}>
           <div style={{ fontSize: 11, color: 'var(--cp-text-on-ink-3)', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600 }}>Portfolio value</div>
-          <div className="cp-num" style={{ fontFamily: 'var(--cp-serif)', fontSize: 56, lineHeight: 1, marginTop: 8, letterSpacing: '-0.02em' }}>{fmtUsd(summary.valueUsd)}</div>
+          <div className="cp-num cp-big-num" style={{ fontFamily: 'var(--cp-serif)', fontSize: 56, lineHeight: 1, marginTop: 8, letterSpacing: '-0.02em' }}>{fmtUsd(summary.valueUsd)}</div>
           <div className="cp-num" style={{ fontSize: 12, color: 'var(--cp-text-on-ink-3)', marginTop: 6 }}>
             {fmtSats(positions.reduce((a, p) => a + p.value, 0))}
           </div>
@@ -177,7 +177,7 @@ function PositionsTable({ rows }: { rows: EnrichedPosition[] }) {
       background: 'var(--cp-card)', borderRadius: 14, border: '1px solid var(--cp-line)',
       overflow: 'hidden', boxShadow: 'var(--cp-shadow-card)',
     }}>
-      <div style={{
+      <div className="cp-positions-header" style={{
         display: 'grid', gridTemplateColumns: '2.2fr 90px 90px 100px 110px 90px',
         fontSize: 11, color: 'var(--cp-text-3)', textTransform: 'uppercase', letterSpacing: '0.06em',
         padding: '14px 20px', borderBottom: '1px solid var(--cp-line)', background: 'var(--cp-card-sub)',
@@ -190,7 +190,7 @@ function PositionsTable({ rows }: { rows: EnrichedPosition[] }) {
         <div></div>
       </div>
       {rows.map((r, i) => (
-        <Link key={r.position.id} href={`/market/${r.market.id}`} style={{
+        <Link key={r.position.id} href={`/market/${r.market.id}`} className="cp-positions-row" style={{
           display: 'grid', gridTemplateColumns: '2.2fr 90px 90px 100px 110px 90px',
           padding: '14px 20px', alignItems: 'center',
           borderBottom: i < rows.length - 1 ? '1px solid var(--cp-line)' : 0,
@@ -239,7 +239,7 @@ function HistoryTable({ rows }: { rows: { trade: Trade; market: CpMarket }[] }) 
   }
   return (
     <div style={{ background: 'var(--cp-card)', borderRadius: 14, border: '1px solid var(--cp-line)', overflow: 'hidden' }}>
-      <div style={{
+      <div className="cp-history-header" style={{
         display: 'grid', gridTemplateColumns: '160px 90px 1fr 80px 100px 110px',
         fontSize: 11, color: 'var(--cp-text-3)', textTransform: 'uppercase', letterSpacing: '0.06em',
         padding: '14px 20px', borderBottom: '1px solid var(--cp-line)', background: 'var(--cp-card-sub)',
@@ -250,7 +250,7 @@ function HistoryTable({ rows }: { rows: { trade: Trade; market: CpMarket }[] }) 
         <div style={{ textAlign: 'right' }}>Total</div>
       </div>
       {rows.map(({ trade, market }, i) => (
-        <div key={trade.id} style={{
+        <div key={trade.id} className="cp-history-row" style={{
           display: 'grid', gridTemplateColumns: '160px 90px 1fr 80px 100px 110px',
           padding: '14px 20px', alignItems: 'center',
           borderBottom: i < rows.length - 1 ? '1px solid var(--cp-line)' : 0,
