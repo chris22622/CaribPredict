@@ -26,28 +26,23 @@ export default function HomePage() {
   async function loadMarkets() {
     setLoading(true); setError('');
     try {
-      // Use /api/markets (service-role) for the markets list so the home page
-      // always works even if anon RLS denies SELECT on the markets table.
-      const res = await fetch('/api/markets?resolved=false');
-      if (!res.ok) {
-        const errBody = await res.json().catch(() => ({}));
-        throw new Error(errBody.error || `Markets API returned ${res.status}`);
-      }
-      const json = await res.json();
-      const ms: Market[] = json.markets || [];
-      if (ms.length === 0) { setMarkets([]); return; }
-      const ids = ms.map(m => m.id);
-      // Options table is anon-readable in the existing schema; keep the
-      // direct supabase call but log if it fails.
+      // Browser-direct Supabase. The /api/markets server route is currently
+      // broken on production (Vercel function returns TypeError: fetch failed)
+      // so we go straight to the anon-keyed client which works in the browser.
+      const { data: ms, error: mErr } = await supabase
+        .from('markets').select('*')
+        .eq('resolved', false)
+        .order('created_at', { ascending: false });
+      if (mErr) throw mErr;
+      const rows = (ms || []) as Market[];
+      if (rows.length === 0) { setMarkets([]); return; }
+      const ids = rows.map(m => m.id);
       const { data: os, error: oErr } = await supabase
         .from('market_options').select('*').in('market_id', ids);
-      if (oErr) {
-        // eslint-disable-next-line no-console
-        console.warn('[CaribPredict] options query failed:', oErr.message);
-      }
+      if (oErr) throw oErr;
       const byMarket: Record<string, MarketOption[]> = {};
       (os || []).forEach((o: MarketOption) => { (byMarket[o.market_id] ||= []).push(o); });
-      const cps = ms.map(m => toCpMarket(m, byMarket[m.id] || []));
+      const cps = rows.map(m => toCpMarket(m, byMarket[m.id] || []));
       setMarkets(cps);
     } catch (e: any) {
       // eslint-disable-next-line no-console

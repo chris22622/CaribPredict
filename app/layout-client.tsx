@@ -86,19 +86,16 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
   }, []);
 
   async function loadMarketsIndex() {
-    // Use the /api/markets server route (service-role, bypasses RLS) so the
-    // global search index always works even if anon RLS denies reads.
+    // Browser-direct Supabase (the /api/markets server route is broken on
+    // production). Anon access on the markets table works fine in browser.
     try {
-      const res = await fetch('/api/markets?resolved=false');
-      if (!res.ok) return;
-      const json = await res.json();
-      const ms: Market[] = json.markets || [];
-      if (ms.length === 0) { setAllMarkets([]); return; }
-      const ids = ms.map(m => m.id);
+      const { data: ms } = await supabaseAnon.from('markets').select('*').eq('resolved', false).limit(120);
+      if (!ms || ms.length === 0) { setAllMarkets([]); return; }
+      const ids = (ms as Market[]).map(m => m.id);
       const { data: os } = await supabaseAnon.from('market_options').select('*').in('market_id', ids);
       const byMarket: Record<string, MarketOption[]> = {};
       (os || []).forEach((o: MarketOption) => { (byMarket[o.market_id] ||= []).push(o); });
-      const cps = ms.map(m => toCpMarket(m, byMarket[m.id] || []));
+      const cps = (ms as Market[]).map(m => toCpMarket(m, byMarket[m.id] || []));
       setAllMarkets(cps);
     } catch (e) {
       // eslint-disable-next-line no-console
