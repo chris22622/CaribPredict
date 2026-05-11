@@ -1,106 +1,125 @@
 'use client';
 
-import { useEffect, useState, createContext, useContext, useCallback } from 'react';
+import { useEffect, useState, createContext, useContext } from 'react';
 import { User } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase-client';
-import Navbar from '@/components/Navbar';
+import { supabase as supabaseAnon } from '@/lib/supabase';
 import WalletModal from '@/components/WalletModal';
 import AuthModal from '@/components/AuthModal';
-import Footer from '@/components/Footer';
+import TopNav from '@/components/cp/TopNav';
+import SearchModal from '@/components/cp/SearchModal';
+import { toCpMarket, CpMarket } from '@/lib/cp-data';
+import { Market, MarketOption } from '@/lib/types';
 
-interface AuthContextType {
+interface CpAppContext {
   user: User | null;
   balance: number;
+  balanceSats: number;
   loading: boolean;
-  refreshBalance: () => Promise<void>;
-  openAuth: () => void;
+  refreshBalance: () => void;
+  openSearch: () => void;
   openWallet: () => void;
+  openAuth: () => void;
   logout: () => Promise<void>;
 }
-
-export const AuthContext = createContext<AuthContextType>({
-  user: null,
-  balance: 0,
-  loading: true,
-  refreshBalance: async () => {},
-  openAuth: () => {},
-  openWallet: () => {},
-  logout: async () => {},
-});
-
-export const useAuth = () => useContext(AuthContext);
+const Ctx = createContext<CpAppContext | null>(null);
+export function useCp() {
+  const c = useContext(Ctx);
+  if (!c) throw new Error('useCp must be inside LayoutClient');
+  return c;
+}
+// Back-compat alias for pages that imported useAuth from this module before
+// the redesign. Exposes the same shape they previously used.
+export function useAuth() {
+  return useCp();
+}
 
 export default function LayoutClient({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [balance, setBalance] = useState<number>(0);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState<boolean>(true);
   const [walletOpen, setWalletOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
-
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [allMarkets, setAllMarkets] = useState<CpMarket[]>([]);
   const supabase = createClient();
-
-  const loadBalance = useCallback(async (userId: string) => {
-    const { data, error } = await supabase
-      .from('users')
-      .select('balance_satoshis')
-      .eq('id', userId)
-      .single();
-
-    if (!error && data) {
-      setBalance(data.balance_satoshis);
-    }
-  }, []);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
-      if (session?.user) {
-        loadBalance(session.user.id);
-      }
+      if (session?.user) loadBalance(session.user.id);
       setLoading(false);
     });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
-      if (session?.user) {
-        loadBalance(session.user.id);
-      } else {
-        setBalance(0);
-      }
+      if (session?.user) loadBalance(session.user.id);
+      else setBalance(0);
     });
-
     return () => subscription.unsubscribe();
   }, []);
 
-  const refreshBalance = useCallback(async () => {
-    if (user) {
-      await loadBalance(user.id);
-    }
-  }, [user, loadBalance]);
-
-  const logout = useCallback(async () => {
-    await supabase.auth.signOut();
-    setUser(null);
-    setBalance(0);
+  useEffect(() => {
+    loadMarketsIndex();
   }, []);
 
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setSearchOpen(true);
+      }
+    }
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, []);
+
+  async function loadMarketsIndex() {
+    try {
+      const { data: ms } = await supabaseAnon.from('markets').select('*').eq('resolved', false).limit(80);
+      const { data: os } = await supabaseAnon.from('market_options').select('*');
+      if (ms && os) {
+        const byMarket: Record<string, MarketOption[]> = {};
+        os.forEach((o: MarketOption) => { (byMarket[o.market_id] ||= []).push(o); });
+        const cps = (ms as Market[]).map(m => toCpMarket(m, byMarket[m.id] || []));
+        setAllMarkets(cps);
+      }
+    } catch {/* silent */}
+  }
+
+  async function loadBalance(uid: string) {
+    const { data } = await supabase.from('users').select('balance_satoshis').eq('id', uid).single();
+    if (data) setBalance(data.balance_satoshis);
+  }
+
+  function handleWalletClick() { user ? setWalletOpen(true) : setAuthOpen(true); }
+  function handleAvatarClick() { user ? (window.location.href = '/profile') : setAuthOpen(true); }
+
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        balance,
-        loading,
-        refreshBalance,
-        openAuth: () => setAuthOpen(true),
-        openWallet: () => (user ? setWalletOpen(true) : setAuthOpen(true)),
-        logout,
-      }}
-    >
-      <Navbar />
+    <Ctx.Provider value={{
+      user, balance, balanceSats: balance, loading,
+      refreshBalance: () => { if (user) loadBalance(user.id); },
+      openSearch: () => setSearchOpen(true),
+      openWallet: handleWalletClick,
+      openAuth: () => setAuthOpen(true),
+      logout: async () => {
+        await supabase.auth.signOut();
+        setUser(null);
+        setBalance(0);
+      },
+    }}>
+      <div style={{ position: 'sticky', top: 0, zIndex: 30 }}>
+        <TopNav
+          onSearch={() => setSearchOpen(true)}
+          balance={user ? balance : undefined}
+          onWalletClick={handleWalletClick}
+          onAvatarClick={handleAvatarClick}
+          isLoggedIn={!!user}
+        />
+      </div>
+
       {children}
-      <Footer />
+
+      <SearchModal open={searchOpen} onClose={() => setSearchOpen(false)} markets={allMarkets}/>
 
       {user && walletOpen && (
         <WalletModal
@@ -112,7 +131,7 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
             created_at: new Date().toISOString(),
           }}
           onClose={() => setWalletOpen(false)}
-          onUpdate={refreshBalance}
+          onUpdate={() => loadBalance(user.id)}
         />
       )}
 
@@ -121,12 +140,10 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
         onClose={() => setAuthOpen(false)}
         onSuccess={() => {
           supabase.auth.getSession().then(({ data: { session } }) => {
-            if (session?.user) {
-              loadBalance(session.user.id);
-            }
+            if (session?.user) loadBalance(session.user.id);
           });
         }}
       />
-    </AuthContext.Provider>
+    </Ctx.Provider>
   );
 }

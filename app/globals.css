@@ -2,67 +2,115 @@
 @tailwind components;
 @tailwind utilities;
 
+/* CaribPredict — Limestone & Sea tokens */
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap');
+
 :root {
-  --bg-primary: #ffffff;
-  --bg-secondary: #f7f7f8;
-  --bg-tertiary: #efefef;
-  --text-primary: #0d0d0d;
-  --text-secondary: #545454;
-  --text-tertiary: #858585;
-  --border-primary: #e5e5e5;
-  --border-secondary: #efefef;
-  --accent-blue: #0066ff;
-  --accent-green: #00c853;
-  --accent-red: #ff3d00;
-  --accent-yellow: #ffc107;
-  --yes-color: #00c853;
-  --no-color: #ff3d00;
-  --caribbean-gold: #f5a623;
+  /* Surfaces */
+  --cp-page:        #F1ECDE;
+  --cp-page-2:      #EBE5D2;
+  --cp-card:        #FFFFFF;
+  --cp-card-sub:    #FAF7EE;
+  --cp-line:        #E4DEC9;
+  --cp-line-strong: #D6CFB7;
+
+  /* Dark surfaces (nav, hero) */
+  --cp-ink:         #0B1F2E;
+  --cp-ink-2:       #102A3D;
+  --cp-ink-3:       #1B3A50;
+  --cp-ink-line:    #21425A;
+
+  /* Text */
+  --cp-text:        #14181F;
+  --cp-text-2:      #4A5260;
+  --cp-text-3:      #7B8390;
+  --cp-text-on-ink: #F1ECDE;
+  --cp-text-on-ink-2:#B7C6D3;
+  --cp-text-on-ink-3:#7D94A6;
+
+  /* Accents */
+  --cp-yes:         #0E7C66;
+  --cp-yes-soft:    #DCEEE8;
+  --cp-yes-ink:     #08412F;
+  --cp-no:          #D24A3A;
+  --cp-no-soft:     #FBE3DC;
+  --cp-no-ink:      #6E1D13;
+  --cp-sun:         #E8A53C;
+  --cp-sun-soft:    #F7E7C1;
+
+  /* Type */
+  --cp-serif:  "Instrument Serif", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  --cp-sans:   "Geist", ui-sans-serif, system-ui, -apple-system, "Helvetica Neue", sans-serif;
+  --cp-mono:   "Geist Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  /* Radii / shadow */
+  --cp-r-sm: 6px;
+  --cp-r-md: 10px;
+  --cp-r-lg: 14px;
+  --cp-r-pill: 999px;
+  --cp-shadow-card: 0 1px 0 rgba(20,24,31,.04), 0 1px 2px rgba(20,24,31,.04);
+  --cp-shadow-hov:  0 6px 14px rgba(20,24,31,.08), 0 2px 4px rgba(20,24,31,.05);
+  --cp-shadow-pop:  0 18px 40px rgba(11,31,46,.18), 0 6px 14px rgba(11,31,46,.10);
+
+  /* Legacy aliases kept so older code still resolves */
+  --bg-primary: var(--cp-card);
+  --bg-secondary: var(--cp-page);
+  --bg-tertiary: var(--cp-page-2);
+  --text-primary: var(--cp-text);
+  --text-secondary: var(--cp-text-2);
+  --text-tertiary: var(--cp-text-3);
+  --border-primary: var(--cp-line);
+  --border-secondary: var(--cp-line);
+  --accent-blue: var(--cp-ink);
+  --accent-green: var(--cp-yes);
+  --accent-red: var(--cp-no);
+  --accent-yellow: var(--cp-sun);
+  --yes-color: var(--cp-yes);
+  --no-color: var(--cp-no);
+  --caribbean-gold: var(--cp-sun);
 }
 
-* {
-  box-sizing: border-box;
-}
+* { box-sizing: border-box; }
 
-body {
-  color: var(--text-primary);
-  background: var(--bg-secondary);
-  min-height: 100vh;
-  font-feature-settings: 'rlig' 1, 'calt' 1;
+html, body {
+  background: var(--cp-page);
+  color: var(--cp-text);
+  font-family: var(--cp-sans);
+  font-feature-settings: "ss01", "cv11", 'rlig' 1, 'calt' 1;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
 }
 
-/* Scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: #d1d5db;
-  border-radius: 3px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #9ca3af;
+.cp-num { font-family: var(--cp-mono); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.cp-serif { font-family: var(--cp-serif); font-weight: 400; letter-spacing: -0.005em; }
+
+.cp-paper {
+  background-color: var(--cp-page);
+  background-image:
+    radial-gradient(rgba(120,100,60,0.035) 1px, transparent 1px),
+    radial-gradient(rgba(120,100,60,0.025) 1px, transparent 1px);
+  background-size: 22px 22px, 14px 14px;
+  background-position: 0 0, 7px 11px;
 }
 
-/* Custom utilities */
+.cp-noscroll { scrollbar-width: none; }
+.cp-noscroll::-webkit-scrollbar { display: none; }
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: rgba(20,24,31,.18); border-radius: 999px; }
+::-webkit-scrollbar-track { background: transparent; }
+
 @layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
-  .hide-scrollbar::-webkit-scrollbar {
-    display: none;
-  }
+  .text-balance { text-wrap: balance; }
+  .hide-scrollbar::-webkit-scrollbar { display: none; }
   .hide-scrollbar {
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
 }
 
-/* Polymarket-style button animations */
+/* Legacy component classes kept so older pages compile */
 @layer components {
   .btn-trade {
     @apply font-semibold rounded-lg px-4 py-2.5 text-sm transition-all duration-150 cursor-pointer;

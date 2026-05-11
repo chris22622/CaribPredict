@@ -9,6 +9,29 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        cp: {
+          page: "#F1ECDE",
+          'page-2': "#EBE5D2",
+          card: "#FFFFFF",
+          'card-sub': "#FAF7EE",
+          line: "#E4DEC9",
+          'line-strong': "#D6CFB7",
+          ink: "#0B1F2E",
+          'ink-2': "#102A3D",
+          'ink-3': "#1B3A50",
+          'ink-line': "#21425A",
+          text: "#14181F",
+          'text-2': "#4A5260",
+          'text-3': "#7B8390",
+          yes: "#0E7C66",
+          'yes-soft': "#DCEEE8",
+          'yes-ink': "#08412F",
+          no: "#D24A3A",
+          'no-soft': "#FBE3DC",
+          'no-ink': "#6E1D13",
+          sun: "#E8A53C",
+          'sun-soft': "#F7E7C1",
+        },
         caribbean: {
           blue: "#1570EF",
           navy: "#0A1628",
@@ -42,9 +65,15 @@ const config: Config = {
           "text-tertiary": "#858585",
         },
       },
+      fontFamily: {
+        serif: ['Instrument Serif', 'Georgia', 'serif'],
+        sans: ['Geist', 'system-ui', 'sans-serif'],
+        mono: ['Geist Mono', 'monospace'],
+      },
       boxShadow: {
-        card: "0 1px 3px 0 rgba(0, 0, 0, 0.04), 0 1px 2px 0 rgba(0, 0, 0, 0.02)",
-        "card-hover": "0 4px 12px 0 rgba(0, 0, 0, 0.08), 0 2px 4px 0 rgba(0, 0, 0, 0.04)",
+        'card': '0 1px 0 rgba(20,24,31,.04), 0 1px 2px rgba(20,24,31,.04)',
+        'card-hover': '0 6px 14px rgba(20,24,31,.08), 0 2px 4px rgba(20,24,31,.05)',
+        'pop': '0 18px 40px rgba(11,31,46,.18), 0 6px 14px rgba(11,31,46,.10)',
         modal: "0 20px 60px -15px rgba(0, 0, 0, 0.3)",
       },
       animation: {
