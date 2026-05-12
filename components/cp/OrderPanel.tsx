@@ -73,24 +73,33 @@ export default function OrderPanel({ market, userId, userBalanceSats, userPositi
     }
     setSubmitting(true);
     try {
-      const res = await fetch('/api/trade', {
+      // Phase 3: route to the peer-to-peer matching exchange instead of LMSR.
+      // The legacy /api/trade endpoint is kept around but no longer wired here.
+      const res = await fetch('/api/bet/place', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId,
           marketId: market.id,
           optionId: outcome.id,
-          tradeType: mode === 'BUY' ? 'buy' : 'sell',
-          shares: quote.shares,
-          cost: quote.costSats,
+          side,
+          amountUsdt: amountUsd,
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Trade failed');
-      toast.success(`${mode === 'BUY' ? 'Bought' : 'Sold'} ${quote.shares.toFixed(1)} shares · ${fmtUsdtFromSats(quote.costSats)}`);
+      if (!res.ok) throw new Error(data.error || 'Bet failed');
+      const matched = (data.matchedUsdt ?? 0).toFixed(2);
+      const unmatched = (data.unmatchedUsdt ?? 0).toFixed(2);
+      if (data.matchedUsdt > 0 && data.unmatchedUsdt > 0) {
+        toast.success(`Placed ${fmtUsdt(amountUsd)}: matched ${matched} USDT, ${unmatched} USDT open.`);
+      } else if (data.matchedUsdt > 0) {
+        toast.success(`Matched ${matched} USDT on ${side} ${Math.round((data.probabilityAtOrder ?? 0) * 100)}%`);
+      } else {
+        toast.success(`Open order placed: ${fmtUsdt(amountUsd)} on ${side}. Waiting for a counterparty.`);
+      }
       onTradeComplete?.();
     } catch (e: any) {
-      toast.error(e.message || 'Trade failed');
+      toast.error(e.message || 'Bet failed');
     } finally {
       setSubmitting(false);
     }
@@ -233,8 +242,8 @@ export default function OrderPanel({ market, userId, userBalanceSats, userPositi
       </button>
 
       <div style={{ fontSize: 11, color: 'var(--cp-text-3)', textAlign: 'center', lineHeight: 1.4 }}>
-        Matched against another bettor. Winners take 95% of pool.
-        <br/>Settled in USDT (TRC-20) the moment the market closes.
+        Peer-to-peer. Your stake locks against a counterparty bet.
+        Winners take 95% of pool. 5% house fee. Unmatched bets refund on close.
       </div>
     </aside>
   );

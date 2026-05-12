@@ -15,6 +15,7 @@ import { Thumb, Button, Avatar } from '@/components/cp/Primitives';
 import Countdown from '@/components/cp/Countdown';
 import PriceChart from '@/components/cp/PriceChart';
 import OrderPanel from '@/components/cp/OrderPanel';
+import OrderBook from '@/components/cp/OrderBook';
 import { useCp } from '@/app/layout-client';
 
 export default function MarketPage() {
@@ -248,6 +249,8 @@ export default function MarketPage() {
               </div>
             ))}
           </section>
+
+          <OrderBook marketId={market.id}/>
 
           <section style={{
             background: 'var(--cp-card)', borderRadius: 14, border: '1px solid var(--cp-line)',
