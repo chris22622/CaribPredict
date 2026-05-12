@@ -9,6 +9,20 @@ import {
   WELCOME_BONUS_CENTS, WELCOME_BONUS_WAGERING_MULT, isLikelyReferralCode,
 } from '@/lib/referrals';
 
+// Daily login bonus schedule (cents). Resets if user misses a day.
+const DAILY_BONUS_CENTS: Record<number, number> = {
+  1: 50, 2: 75, 3: 100, 4: 150, 5: 200, 6: 300, 7: 500,
+};
+function bonusForStreakDay(day: number): number {
+  return DAILY_BONUS_CENTS[Math.min(7, Math.max(1, day))] || 500;
+}
+function utcDateString(d: Date = new Date()): string {
+  return d.toISOString().slice(0, 10);
+}
+function dateDiffDays(a: string, b: string): number {
+  return Math.round((new Date(b).getTime() - new Date(a).getTime()) / 86400000);
+}
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -23,7 +37,7 @@ export async function POST(req: NextRequest) {
     // 1. Load user (also confirms existence)
     const { data: user } = await supabase
       .from('users')
-      .select('id, balance_cents, bonus_balance_cents, welcome_bonus_credited, referral_code, referred_by_user_id')
+      .select('id, balance_cents, bonus_balance_cents, welcome_bonus_credited, referral_code, referred_by_user_id, current_streak_days, last_login_bonus_date, lifetime_streak_high')
       .eq('id', userId).single();
     if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
 
@@ -74,6 +88,51 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // ──────────────────────────────────────────────
+    // Daily login bonus
+    // ──────────────────────────────────────────────
+    let dailyBonusCredited = false;
+    let dailyBonusAmountUsdt = 0;
+    let streakDay = 0;
+    const today = utcDateString();
+    if (user.last_login_bonus_date !== today) {
+      // Determine new streak day
+      let newStreak = 1;
+      if (user.last_login_bonus_date) {
+        const diff = dateDiffDays(user.last_login_bonus_date, today);
+        if (diff === 1) newStreak = (user.current_streak_days || 0) + 1;
+        else if (diff === 0) newStreak = user.current_streak_days || 1; // shouldn't happen
+        else newStreak = 1; // missed at least one day
+      }
+      const cents = bonusForStreakDay(newStreak);
+      const newHigh = Math.max(user.lifetime_streak_high || 0, newStreak);
+
+      // Insert one-per-day row (idempotent via UNIQUE)
+      const { error: dErr } = await supabase.from('daily_login_bonuses').insert({
+        user_id: userId, bonus_date: today, amount_cents: cents, streak_day: newStreak,
+      });
+      if (!dErr) {
+        // Credit bonus_balance with 10x wagering on bonus portion
+        const fresh = await supabase.from('users').select('bonus_balance_cents, bonus_wagering_required_cents').eq('id', userId).single();
+        const curBonusBal = fresh.data?.bonus_balance_cents || 0;
+        const curBonusReq = fresh.data?.bonus_wagering_required_cents || 0;
+        await supabase.from('users').update({
+          bonus_balance_cents: curBonusBal + cents,
+          bonus_wagering_required_cents: curBonusReq + cents * 10,
+          current_streak_days: newStreak,
+          last_login_bonus_date: today,
+          lifetime_streak_high: newHigh,
+        }).eq('id', userId);
+        await supabase.from('bonus_grants').insert({
+          user_id: userId, amount_cents: cents,
+          reason: `daily-login-day-${newStreak}`, wagering_multiplier: 10,
+        });
+        dailyBonusCredited = true;
+        dailyBonusAmountUsdt = cents / 100;
+        streakDay = newStreak;
+      }
+    }
+
     // 5. Re-fetch the user for the response
     const { data: refreshed } = await supabase
       .from('users')
@@ -84,6 +143,11 @@ export async function POST(req: NextRequest) {
       ok: true,
       bonusJustCredited: bonusCredited,
       bonusAmountUsdt: bonusCredited ? WELCOME_BONUS_CENTS / 100 : 0,
+      dailyBonus: {
+        credited: dailyBonusCredited,
+        amountUsdt: dailyBonusAmountUsdt,
+        streakDay,
+      },
       referrer: referrerInfo,
       user: refreshed,
     });
