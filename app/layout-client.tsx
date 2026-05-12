@@ -9,6 +9,9 @@ import TopNav from '@/components/cp/TopNav';
 import SearchModal from '@/components/cp/SearchModal';
 import MobileBottomNav from '@/components/cp/MobileBottomNav';
 import DepositModal from '@/components/cp/DepositModal';
+import CookieAgeBanner from '@/components/cp/CookieAgeBanner';
+import PWAInstallPrompt from '@/components/cp/PWAInstallPrompt';
+import LiveChat from '@/components/cp/LiveChat';
 import { toCpMarket, CpMarket } from '@/lib/cp-data';
 import { Market, MarketOption } from '@/lib/types';
 
@@ -177,6 +180,10 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
       <SearchModal open={searchOpen} onClose={() => setSearchOpen(false)} markets={allMarkets}/>
 
       <MobileBottomNav isLoggedIn={!!user} onAccountClick={() => setAuthOpen(true)}/>
+
+      <CookieAgeBanner/>
+      <PWAInstallPrompt/>
+      <LiveChat/>
 
       {user && (
         <DepositModal

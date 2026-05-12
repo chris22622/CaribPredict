@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { sendUsdtFromHotWallet, isValidTronAddress, TronEnv } from '@/lib/tron';
+import { sendEmail, withdrawSentEmail } from '@/lib/email';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -129,6 +130,21 @@ export async function POST(req: NextRequest) {
       tx_hash: txHash,
       sent_at: new Date().toISOString(),
     }).eq('id', wrow.id);
+
+    // Email receipt (best-effort)
+    try {
+      const { data: authUser } = await supabase.auth.admin.getUserById(userId);
+      const email = authUser?.user?.email;
+      if (email) {
+        await sendEmail({
+          userId, toEmail: email,
+          template: 'withdraw-sent',
+          subject: `Withdrawal sent · ${(netCents / 100).toFixed(2)} USDT`,
+          html: withdrawSentEmail(amountCents / 100, netCents / 100, txHash, toAddress),
+          payload: { txHash, amountCents, netCents, toAddress },
+        });
+      }
+    } catch {/* ignore */}
 
     return NextResponse.json({
       ok: true,

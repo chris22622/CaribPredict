@@ -7,6 +7,7 @@ import {
 import {
   tierForActiveReferrals, earnedCentsFromFee,
 } from '@/lib/referrals';
+import { checkBetAllowed } from '@/lib/responsible';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -63,6 +64,11 @@ export async function POST(req: NextRequest) {
     const bonusBal = user.bonus_balance_cents || 0;
     if (realBal + bonusBal < stakeCents) {
       return NextResponse.json({ error: 'Insufficient balance' }, { status: 400 });
+    }
+    // Responsible-gambling gate (self-exclusion, cooling-off, daily caps)
+    const rg = await checkBetAllowed(supabase, userId, stakeCents);
+    if (rg.blocked) {
+      return NextResponse.json({ error: rg.message, code: rg.code }, { status: 403 });
     }
     const bonusUsedCents = Math.min(bonusBal, stakeCents);
     const realUsedCents  = stakeCents - bonusUsedCents;

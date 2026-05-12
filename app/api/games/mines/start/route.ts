@@ -8,6 +8,7 @@ import {
   makeServerSeed, minesGridFromSeed, minesMultiplier, sha256Hex,
   MIN_INSTANT_STAKE_CENTS, MAX_INSTANT_STAKE_CENTS,
 } from '@/lib/games';
+import { checkBetAllowed } from '@/lib/responsible';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -37,6 +38,8 @@ export async function POST(req: NextRequest) {
     const realBal = user.balance_cents || 0;
     const bonusBal = user.bonus_balance_cents || 0;
     if (realBal + bonusBal < stakeCents) return NextResponse.json({ error: 'Insufficient balance' }, { status: 400 });
+    const rg = await checkBetAllowed(supabase, userId, stakeCents);
+    if (rg.blocked) return NextResponse.json({ error: rg.message, code: rg.code }, { status: 403 });
     const bonusUsed = Math.min(bonusBal, stakeCents);
     const realUsed = stakeCents - bonusUsed;
     const nonce = (user.games_nonce || 0) + 1;

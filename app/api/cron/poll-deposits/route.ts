@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getRecentUsdtTransfersTo, TronEnv } from '@/lib/tron';
+import { sendEmail, depositCreditedEmail } from '@/lib/email';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -96,6 +97,21 @@ export async function GET(req: NextRequest) {
         amount_cents: t.amountCents,
         status: 'credited',
       });
+
+      // Email receipt (best-effort)
+      try {
+        const { data: authUser } = await supabase.auth.admin.getUserById(intent.user_id);
+        const email = authUser?.user?.email;
+        if (email) {
+          await sendEmail({
+            userId: intent.user_id, toEmail: email,
+            template: 'deposit-credited',
+            subject: `Deposit credited · ${(t.amountCents / 100).toFixed(2)} USDT`,
+            html: depositCreditedEmail(t.amountCents / 100, t.txHash),
+            payload: { txHash: t.txHash, amountCents: t.amountCents },
+          });
+        }
+      } catch {/* ignore */}
 
       // Set wagering requirement: 5x for first-ever deposit, otherwise additive
       const { data: existingDeposits } = await supabase
