@@ -4,6 +4,9 @@ import {
   planMatches, probabilityFromVolumes, consumedByOrder,
   OpenOrder, MIN_ORDER_CENTS, HOUSE_FEE_BPS,
 } from '@/lib/matching';
+import {
+  tierForActiveReferrals, earnedCentsFromFee,
+} from '@/lib/referrals';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -50,15 +53,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid option for this market' }, { status: 400 });
     }
 
-    // 3. Verify user + balance
+    // 3. Verify user + balance. Bonus balance is spent first, then real.
     const { data: user } = await supabase
       .from('users')
-      .select('id, balance_cents, wagering_completed_cents')
+      .select('id, balance_cents, bonus_balance_cents, wagering_completed_cents, bonus_wagering_completed_cents, referred_by_user_id')
       .eq('id', userId).single();
     if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
-    if ((user.balance_cents || 0) < stakeCents) {
+    const realBal  = user.balance_cents || 0;
+    const bonusBal = user.bonus_balance_cents || 0;
+    if (realBal + bonusBal < stakeCents) {
       return NextResponse.json({ error: 'Insufficient balance' }, { status: 400 });
     }
+    const bonusUsedCents = Math.min(bonusBal, stakeCents);
+    const realUsedCents  = stakeCents - bonusUsedCents;
 
     // 4. Compute current market probability for this option from matched volume.
     const { data: prevMatched } = await supabase
@@ -69,9 +76,14 @@ export async function POST(req: NextRequest) {
     const probability = probabilityFromVolumes(yesVol, noVol);
 
     // 5. Debit balance first (we refund on insert failure below).
-    const newBalance = (user.balance_cents || 0) - stakeCents;
+    //    Bonus debited from bonus_balance, the rest from balance.
+    const newRealBalance  = realBal  - realUsedCents;
+    const newBonusBalance = bonusBal - bonusUsedCents;
     const { error: debitErr } = await supabase
-      .from('users').update({ balance_cents: newBalance }).eq('id', userId);
+      .from('users').update({
+        balance_cents: newRealBalance,
+        bonus_balance_cents: newBonusBalance,
+      }).eq('id', userId);
     if (debitErr) return NextResponse.json({ error: 'Failed to debit balance' }, { status: 500 });
 
     // 6. Create the new bet_order in `open` state.
@@ -89,8 +101,11 @@ export async function POST(req: NextRequest) {
       })
       .select().single();
     if (orderErr || !newOrder) {
-      // Refund balance on failure.
-      await supabase.from('users').update({ balance_cents: user.balance_cents }).eq('id', userId);
+      // Refund both buckets on failure.
+      await supabase.from('users').update({
+        balance_cents: realBal,
+        bonus_balance_cents: bonusBal,
+      }).eq('id', userId);
       return NextResponse.json({ error: orderErr?.message || 'Failed to create order' }, { status: 500 });
     }
 
@@ -161,19 +176,90 @@ export async function POST(req: NextRequest) {
       }).eq('id', orderId);
     }
 
-    // 10. Bump wagering_completed_cents for both sides on each match.
-    for (const m of matches) {
-      const adjustments = [
-        { userId: m.yes_user_id, add: m.yes_stake_cents },
-        { userId: m.no_user_id,  add: m.no_stake_cents },
-      ];
-      for (const a of adjustments) {
-        const { data: u } = await supabase.from('users')
-          .select('wagering_completed_cents').eq('id', a.userId).single();
-        if (!u) continue;
+    // 10. Bump wagering counters for both sides on each match.
+    //     For the placing user, split between real and bonus proportionally
+    //     to the bonus_used / real_used ratio. Counterparty wagering all goes
+    //     to their real counter since we don't know their bonus split here
+    //     (those orders were placed in prior calls with their own bookkeeping).
+    const placerStakeCents = matchedTotal;
+    const placerBonusPortion = placerStakeCents > 0
+      ? Math.floor(placerStakeCents * bonusUsedCents / stakeCents)
+      : 0;
+    const placerRealPortion = placerStakeCents - placerBonusPortion;
+    if (placerStakeCents > 0) {
+      const { data: u } = await supabase.from('users')
+        .select('wagering_completed_cents, bonus_wagering_completed_cents').eq('id', userId).single();
+      if (u) {
         await supabase.from('users').update({
-          wagering_completed_cents: (u.wagering_completed_cents || 0) + a.add,
-        }).eq('id', a.userId);
+          wagering_completed_cents: (u.wagering_completed_cents || 0) + placerRealPortion,
+          bonus_wagering_completed_cents: (u.bonus_wagering_completed_cents || 0) + placerBonusPortion,
+        }).eq('id', userId);
+      }
+    }
+    // Counterparty wagering
+    for (const m of matches) {
+      const counterpartyUserId = side === 'YES' ? m.no_user_id : m.yes_user_id;
+      const counterpartyStake  = side === 'YES' ? m.no_stake_cents : m.yes_stake_cents;
+      const { data: u } = await supabase.from('users')
+        .select('wagering_completed_cents').eq('id', counterpartyUserId).single();
+      if (u) {
+        await supabase.from('users').update({
+          wagering_completed_cents: (u.wagering_completed_cents || 0) + counterpartyStake,
+        }).eq('id', counterpartyUserId);
+      }
+    }
+
+    // 11. Referral earnings: for every match, credit each user's referrer
+    //     (if any) a tier-based percentage of the house fee from that match.
+    for (const m of matches) {
+      const involved = [
+        { userId: m.yes_user_id, stake: m.yes_stake_cents },
+        { userId: m.no_user_id,  stake: m.no_stake_cents  },
+      ];
+      // Allocate this match's fee between the two sides proportionally to stake.
+      const totalStake = m.yes_stake_cents + m.no_stake_cents;
+      for (const inv of involved) {
+        const { data: bettor } = await supabase
+          .from('users').select('referred_by_user_id').eq('id', inv.userId).single();
+        if (!bettor?.referred_by_user_id) continue;
+
+        // Active-referral count for this referrer determines their tier.
+        const { data: their } = await supabase
+          .from('users').select('id').eq('referred_by_user_id', bettor.referred_by_user_id);
+        const referreeIds = (their || []).map((r: any) => r.id);
+        let activeCount = 0;
+        if (referreeIds.length) {
+          const { data: bets } = await supabase
+            .from('bet_orders').select('user_id').in('user_id', referreeIds);
+          activeCount = new Set((bets || []).map((b: any) => b.user_id)).size;
+        }
+        const tier = tierForActiveReferrals(activeCount);
+        const sourceFee = totalStake > 0
+          ? Math.floor(m.fee_cents * inv.stake / totalStake)
+          : 0;
+        const earned = earnedCentsFromFee(sourceFee, tier.rateBps);
+        if (earned <= 0) continue;
+
+        await supabase.from('referral_earnings').insert({
+          referrer_id: bettor.referred_by_user_id,
+          referee_id: inv.userId,
+          matched_bet_id: null, // we don't have the inserted matched_bet id here
+          source_fee_cents: sourceFee,
+          rate_bps: tier.rateBps,
+          earned_cents: earned,
+          status: 'pending',
+        });
+
+        // Credit referrer's balance immediately (paid weekly per spec, but for
+        // MVP we credit on-the-fly and the "weekly settlement" job can move
+        // pending -> paid status).
+        const { data: refUser } = await supabase
+          .from('users').select('balance_cents').eq('id', bettor.referred_by_user_id).single();
+        if (refUser) {
+          await supabase.from('users').update({
+            balance_cents: (refUser.balance_cents || 0) + earned,
+          }).eq('id', bettor.referred_by_user_id);
+        }
       }
     }
 

@@ -26,7 +26,7 @@ export default function PortfolioPage() {
   const [userData, setUserData] = useState<any>(null);
   const [positions, setPositions] = useState<EnrichedPosition[]>([]);
   const [trades, setTrades] = useState<{ trade: Trade; market: CpMarket }[]>([]);
-  const [tab, setTab] = useState<'positions'|'history'|'watchlist'|'rewards'>('positions');
+  const [tab, setTab] = useState<'positions'|'history'|'watchlist'|'referrals'>('positions');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -130,7 +130,7 @@ export default function PortfolioPage() {
       <WageringProgress userId={userData?.id}/>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 4, borderBottom: '1px solid var(--cp-line)', marginTop: 28 }}>
-        {(['positions','history','watchlist','rewards'] as const).map(t => (
+        {(['positions','history','watchlist','referrals'] as const).map(t => (
           <button key={t} onClick={() => setTab(t)} style={{
             padding: '12px 14px', border: 0, background: 'transparent', cursor: 'pointer',
             fontSize: 13.5, fontWeight: 600,
@@ -146,7 +146,7 @@ export default function PortfolioPage() {
         {tab === 'positions' && <PositionsTable rows={positions}/>}
         {tab === 'history' && <HistoryTable rows={trades}/>}
         {tab === 'watchlist' && <WatchlistEmpty/>}
-        {tab === 'rewards' && <RewardsEmpty/>}
+        {tab === 'referrals' && <Referrals userId={userData?.id}/>}
       </section>
     </main>
   );
@@ -347,18 +347,123 @@ function WatchlistEmpty() {
   );
 }
 
-function RewardsEmpty() {
+function Referrals({ userId }: { userId?: string }) {
+  const [data, setData] = useState<any>(null);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (!userId) return;
+    fetch(`/api/referrals/me?userId=${userId}`).then(r => r.json()).then(setData).catch(() => {/*silent*/});
+  }, [userId]);
+
+  if (!userId) {
+    return (
+      <div style={{ padding: '60px 20px', background: 'var(--cp-card)', borderRadius: 14, border: '1px solid var(--cp-line)', textAlign: 'center' }}>
+        <p style={{ margin: 0, color: 'var(--cp-text-3)', fontSize: 14 }}>Sign in to see your referral link.</p>
+      </div>
+    );
+  }
+  if (!data) {
+    return <div style={{ padding: 40, color: 'var(--cp-text-3)', fontSize: 13, textAlign: 'center' }}>Loading…</div>;
+  }
+  if (data.error) {
+    return <div style={{ padding: 14, background: 'var(--cp-no-soft)', color: 'var(--cp-no-ink)', borderRadius: 10 }}>{data.error}</div>;
+  }
+
+  function copy(value: string) {
+    navigator.clipboard.writeText(value).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1800); });
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{
+        background: 'var(--cp-card)', borderRadius: 14, border: '1px solid var(--cp-line)',
+        padding: 18, display: 'flex', flexDirection: 'column', gap: 12,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+          <div>
+            <div style={{ fontSize: 11.5, color: 'var(--cp-text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
+              Your referral code
+            </div>
+            <div className="cp-num" style={{ fontFamily: 'var(--cp-serif)', fontSize: 40, lineHeight: 1, marginTop: 6, letterSpacing: '0.05em', color: 'var(--cp-sun)' }}>
+              {data.referralCode || '—'}
+            </div>
+            {data.shareUrl && (
+              <div style={{ marginTop: 8, fontSize: 12.5, color: 'var(--cp-text-3)' }}>
+                Share <span className="cp-num" style={{ color: 'var(--cp-text-2)' }}>{data.shareUrl}</span>
+              </div>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {data.shareUrl && <Button kind="outline" onClick={() => copy(data.shareUrl)}>{copied ? 'Copied' : 'Copy link'}</Button>}
+            {data.referralCode && <Button kind="primary" onClick={() => copy(data.referralCode)}>Copy code</Button>}
+          </div>
+        </div>
+      </div>
+
+      <div style={{
+        display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 12,
+      }} className="cp-portfolio-grid">
+        <Mini label="Active referrals" value={String(data.activeReferrals ?? 0)} sub={`${data.totalReferrals ?? 0} total signed up`}/>
+        <Mini label="Tier" value={data.currentTier?.name || 'None'} sub={`${(data.currentTier?.rateBps ?? 0) / 100}% of fee earned`}/>
+        <Mini label="Earned total" value={fmtUsdt(data.earnings?.totalUsdt ?? 0)} sub={`${fmtUsdt(data.earnings?.pendingUsdt ?? 0)} pending`}/>
+        <Mini label="Next tier" value={data.nextTier?.name || 'Top tier'}
+          sub={data.nextTier ? `${data.nextTier.minActiveRefs - (data.activeReferrals || 0)} more to unlock ${data.nextTier.rateBps / 100}%` : 'Maxed'}/>
+      </div>
+
+      <div style={{
+        background: 'var(--cp-card)', borderRadius: 14, border: '1px solid var(--cp-line)',
+        padding: 18,
+      }}>
+        <h3 style={{ margin: 0, fontFamily: 'var(--cp-serif)', fontWeight: 400, fontSize: 20, marginBottom: 12 }}>Recent earnings</h3>
+        {(!data.recent || data.recent.length === 0) ? (
+          <div style={{ color: 'var(--cp-text-3)', fontSize: 13 }}>
+            No earnings yet. Earnings are credited the moment a referred user&rsquo;s bet is matched, paid from the house fee.
+          </div>
+        ) : (
+          <div>
+            {data.recent.map((r: any, i: number) => (
+              <div key={r.id} style={{
+                display: 'grid', gridTemplateColumns: '180px 1fr auto auto',
+                gap: 10, alignItems: 'center', padding: '10px 0',
+                borderBottom: i < data.recent.length - 1 ? '1px solid var(--cp-line)' : 0,
+                fontSize: 13,
+              }}>
+                <div className="cp-num" style={{ color: 'var(--cp-text-3)' }}>{new Date(r.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                <div style={{ color: 'var(--cp-text-2)' }}>Match fee {fmtUsdt(r.source_fee_usdt)} · rate {r.rate_pct}%</div>
+                <div className="cp-num" style={{ color: 'var(--cp-text-3)', fontSize: 12 }}>{r.status}</div>
+                <div className="cp-num" style={{ fontWeight: 600, color: 'var(--cp-yes-ink)' }}>+{fmtUsdt(r.earned_usdt)}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div style={{
+        background: 'var(--cp-card-sub)', borderRadius: 12, border: '1px solid var(--cp-line)',
+        padding: '14px 16px', fontSize: 12.5, color: 'var(--cp-text-2)', lineHeight: 1.55,
+      }}>
+        Earnings tiers based on active referrals (referees who&rsquo;ve placed at least one bet):
+        <ul style={{ margin: '8px 0 0', paddingLeft: 18 }}>
+          <li>Starter (1–4): 1.0% of house fee</li>
+          <li>Connector (5–14): 1.5%</li>
+          <li>Captain (15–29): 2.0%</li>
+          <li>Don (30+): 2.5%</li>
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+function Mini({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
     <div style={{
-      padding: '60px 20px', background: 'var(--cp-card)', borderRadius: 14,
-      border: '1px solid var(--cp-line)', textAlign: 'center',
-      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
+      background: 'var(--cp-card)', borderRadius: 12, border: '1px solid var(--cp-line)',
+      padding: '12px 14px',
     }}>
-      <SunDot size={36}/>
-      <h3 style={{ margin: 0, fontFamily: 'var(--cp-serif)', fontSize: 22, fontWeight: 400 }}>Rewards coming soon</h3>
-      <p style={{ margin: 0, color: 'var(--cp-text-3)', maxWidth: 460, fontSize: 13.5, lineHeight: 1.5 }}>
-        Trade on multiple CARICOM markets to start earning weekly rewards, paid in sats.
-      </p>
+      <div style={{ fontSize: 11, color: 'var(--cp-text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>{label}</div>
+      <div className="cp-num" style={{ fontFamily: 'var(--cp-serif)', fontSize: 22, marginTop: 4, color: 'var(--cp-text)' }}>{value}</div>
+      {sub && <div style={{ fontSize: 11.5, color: 'var(--cp-text-3)', marginTop: 2 }}>{sub}</div>}
     </div>
   );
 }

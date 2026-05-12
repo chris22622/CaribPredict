@@ -48,16 +48,53 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
-      if (session?.user) loadBalance(session.user.id);
+      if (session?.user) {
+        loadBalance(session.user.id);
+        initUserAndClaimReferral(session.user.id);
+      }
       setLoading(false);
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
-      if (session?.user) loadBalance(session.user.id);
-      else setBalance(0);
+      if (session?.user) {
+        loadBalance(session.user.id);
+        initUserAndClaimReferral(session.user.id);
+      } else {
+        setBalance(0);
+      }
     });
     return () => subscription.unsubscribe();
   }, []);
+
+  // Idempotent server call: credit welcome bonus, generate referral code,
+  // and claim a referrer if the URL has ?ref=XXXXXX.
+  async function initUserAndClaimReferral(uid: string) {
+    let referredByCode: string | undefined;
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const ref = params.get('ref');
+      if (ref) {
+        referredByCode = ref.trim().toUpperCase();
+        // Also persist to localStorage so the ref survives the post-signup redirect
+        try { window.localStorage.setItem('cp_ref', referredByCode); } catch {/*ignore*/}
+      } else {
+        try { referredByCode = window.localStorage.getItem('cp_ref') || undefined; } catch {/*ignore*/}
+      }
+    }
+    try {
+      const res = await fetch('/api/user/init', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: uid, referredByCode }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (data?.bonusJustCredited && data.bonusAmountUsdt > 0 && typeof window !== 'undefined') {
+        // Dynamic import keeps sonner out of the synchronous init path
+        const { toast } = await import('sonner');
+        toast.success(`Welcome bonus credited: ${data.bonusAmountUsdt.toFixed(2)} USDT free play (10x wagering).`);
+      }
+    } catch {/* silent */}
+  }
 
   useEffect(() => {
     loadMarketsIndex();
