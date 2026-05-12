@@ -3,7 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { winnerPayoutCents } from '@/lib/matching';
+import { settleMarket } from '@/lib/settlement';
 
 const ADMIN_EMAILS = ['chrissanoleslie1990@gmail.com'];
 const supabase = createClient(
@@ -39,97 +39,17 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       return NextResponse.json({ error: 'winningOptionId + winningSide required' }, { status: 400 });
     }
 
-    const { data: market } = await supabase
-      .from('markets').select('id, resolved').eq('id', marketId).single();
-    if (!market) return NextResponse.json({ error: 'Market not found' }, { status: 404 });
-    if (market.resolved) return NextResponse.json({ error: 'Market already resolved' }, { status: 400 });
-
-    // 1. Settle every matched_bets row for this market.
-    const { data: allMatched } = await supabase
-      .from('matched_bets')
-      .select('*')
-      .eq('market_id', marketId).eq('status', 'open');
-
-    let totalPaidOut = 0;
-    let totalFee = 0;
-    let payouts = 0;
-
-    for (const m of allMatched || []) {
-      const isWinningOption = m.option_id === winningOptionId;
-      // If this match was on the winning option AND `winningSide` is YES,
-      // the yes_user wins; if NO, the no_user wins. If the match was on a
-      // losing option, the NO side of THAT option wins (because the option
-      // didn't happen).
-      const winnerSideForThisMatch: 'YES' | 'NO' =
-        isWinningOption ? winningSide : 'NO';
-      const winnerUserId = winnerSideForThisMatch === 'YES' ? m.yes_user_id : m.no_user_id;
-      const payout = winnerPayoutCents(m.total_pool_cents);
-
-      // Credit winner balance
-      const { data: u } = await supabase.from('users')
-        .select('balance_cents').eq('id', winnerUserId).single();
-      if (u) {
-        await supabase.from('users')
-          .update({ balance_cents: (u.balance_cents || 0) + payout })
-          .eq('id', winnerUserId);
-      }
-
-      await supabase.from('matched_bets').update({
-        status: 'settled',
-        winner_side: winnerSideForThisMatch,
-        winner_payout_cents: payout,
-        settled_at: new Date().toISOString(),
-      }).eq('id', m.id);
-
-      // Update bet_orders status of yes_order and no_order (so user-side ledger reflects)
-      await supabase.from('bet_orders').update({ status: winnerSideForThisMatch === 'YES' ? 'won' : 'lost' })
-        .eq('id', m.yes_order_id);
-      await supabase.from('bet_orders').update({ status: winnerSideForThisMatch === 'NO' ? 'won' : 'lost' })
-        .eq('id', m.no_order_id);
-
-      totalPaidOut += payout;
-      totalFee += m.fee_cents;
-      payouts++;
-    }
-
-    // 2. Refund all unmatched portions of any bet_orders for this market.
-    const { data: openOrders } = await supabase
-      .from('bet_orders').select('id, user_id, stake_cents, matched_cents, status')
-      .eq('market_id', marketId).in('status', ['open', 'partial']);
-
-    let refundedCount = 0;
-    let refundedTotal = 0;
-    for (const o of openOrders || []) {
-      const unmatched = (o.stake_cents || 0) - (o.matched_cents || 0);
-      if (unmatched <= 0) continue;
-      const { data: u } = await supabase.from('users').select('balance_cents').eq('id', o.user_id).single();
-      if (u) {
-        await supabase.from('users')
-          .update({ balance_cents: (u.balance_cents || 0) + unmatched })
-          .eq('id', o.user_id);
-      }
-      await supabase.from('bet_orders').update({ status: 'refunded' }).eq('id', o.id);
-      refundedCount++;
-      refundedTotal += unmatched;
-    }
-
-    // 3. Mark market as resolved.
-    await supabase.from('markets').update({
-      resolved: true,
-      resolution: winningSide === 'YES' ? winningOptionId : `NOT_${winningOptionId}`,
-      updated_at: new Date().toISOString(),
-    }).eq('id', marketId);
-
+    const result = await settleMarket(supabase, marketId, winningOptionId, winningSide);
     return NextResponse.json({
       ok: true,
-      marketId,
-      winningOptionId,
-      winningSide,
-      payouts,
-      totalPaidOutUsdt: totalPaidOut / 100,
-      totalFeeUsdt: totalFee / 100,
-      refundedOrders: refundedCount,
-      refundedTotalUsdt: refundedTotal / 100,
+      marketId: result.marketId,
+      winningOptionId: result.winningOptionId,
+      winningSide: result.winningSide,
+      payouts: result.payouts,
+      totalPaidOutUsdt: result.totalPaidOutCents / 100,
+      totalFeeUsdt: result.totalFeeCents / 100,
+      refundedOrders: result.refundedOrders,
+      refundedTotalUsdt: result.refundedTotalCents / 100,
     });
   } catch (e: any) {
     console.error('[CaribPredict] /api/markets/[id]/settle error', e);
