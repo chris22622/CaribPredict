@@ -4,11 +4,11 @@ import { useEffect, useState, createContext, useContext } from 'react';
 import { User } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase-client';
 import { supabase as supabaseAnon } from '@/lib/supabase';
-import WalletModal from '@/components/WalletModal';
 import AuthModal from '@/components/AuthModal';
 import TopNav from '@/components/cp/TopNav';
 import SearchModal from '@/components/cp/SearchModal';
 import MobileBottomNav from '@/components/cp/MobileBottomNav';
+import DepositModal from '@/components/cp/DepositModal';
 import { toCpMarket, CpMarket } from '@/lib/cp-data';
 import { Market, MarketOption } from '@/lib/types';
 
@@ -141,17 +141,11 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
 
       <MobileBottomNav isLoggedIn={!!user} onAccountClick={() => setAuthOpen(true)}/>
 
-      {user && walletOpen && (
-        <WalletModal
-          user={{
-            id: user.id,
-            telegram_id: undefined,
-            username: user.email?.split('@')[0] || 'user',
-            balance_satoshis: balance,
-            created_at: new Date().toISOString(),
-          }}
+      {user && (
+        <DepositModal
+          isOpen={walletOpen}
           onClose={() => setWalletOpen(false)}
-          onUpdate={() => loadBalance(user.id)}
+          userId={user.id}
         />
       )}
 

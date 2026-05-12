@@ -127,7 +127,7 @@ export default function PortfolioPage() {
           trailing={<Button kind="sun" size="sm" icon="plus">Deposit</Button>}/>
       </header>
 
-      <WageringProgress wagered={0} required={summary.cashUsd * 5} hasDeposit={summary.cashUsd > 0}/>
+      <WageringProgress userId={userData?.id}/>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 4, borderBottom: '1px solid var(--cp-line)', marginTop: 28 }}>
         {(['positions','history','watchlist','rewards'] as const).map(t => (
@@ -152,9 +152,32 @@ export default function PortfolioPage() {
   );
 }
 
-function WageringProgress({ wagered, required, hasDeposit }: { wagered: number; required: number; hasDeposit: boolean }) {
-  const pct = required > 0 ? Math.min(100, (wagered / required) * 100) : 0;
-  const done = required > 0 && wagered >= required;
+function WageringProgress({ userId }: { userId?: string }) {
+  const [data, setData] = useState<{
+    required: number; completed: number; remaining: number;
+    unlocked: boolean; balance: number;
+  }>({ required: 0, completed: 0, remaining: 0, unlocked: true, balance: 0 });
+
+  useEffect(() => {
+    if (!userId) return;
+    fetch(`/api/wallet/status?userId=${userId}`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.error) return;
+        setData({
+          required: d.wagering?.requiredUsdt || 0,
+          completed: d.wagering?.completedUsdt || 0,
+          remaining: d.wagering?.remainingUsdt || 0,
+          unlocked: !!d.wagering?.unlocked,
+          balance: d.balanceUsdt || 0,
+        });
+      })
+      .catch(() => {/* silent */});
+  }, [userId]);
+
+  const hasDeposit = data.required > 0;
+  const pct = data.required > 0 ? Math.min(100, (data.completed / data.required) * 100) : 0;
+  const done = data.unlocked && hasDeposit;
   return (
     <div style={{
       marginTop: 18, background: 'var(--cp-card)', borderRadius: 12,
@@ -171,7 +194,7 @@ function WageringProgress({ wagered, required, hasDeposit }: { wagered: number; 
           </span>
           <span className="cp-num" style={{ fontSize: 12.5, color: 'var(--cp-text-2)' }}>
             {hasDeposit
-              ? `${wagered.toFixed(2)} / ${required.toFixed(2)} USDT`
+              ? `${data.completed.toFixed(2)} / ${data.required.toFixed(2)} USDT`
               : 'Deposit USDT to unlock'}
           </span>
         </div>
@@ -187,7 +210,7 @@ function WageringProgress({ wagered, required, hasDeposit }: { wagered: number; 
         </div>
         <div style={{ marginTop: 6, fontSize: 11.5, color: 'var(--cp-text-3)' }}>
           {!hasDeposit && 'Bet 5× your first deposit to unlock withdrawals. Welcome bonus credits track separately at 10×.'}
-          {hasDeposit && !done && `Bet ${(required - wagered).toFixed(2)} USDT more to unlock withdrawals.`}
+          {hasDeposit && !done && `Bet ${data.remaining.toFixed(2)} USDT more to unlock withdrawals.`}
           {done && '✓ All future withdrawals are instant.'}
         </div>
       </div>
