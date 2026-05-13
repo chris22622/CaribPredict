@@ -15,6 +15,10 @@
     {
       "path": "/api/cron/crash-tick",
       "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/weekly-rakeback",
+      "schedule": "0 6 * * 1"
     }
   ]
 }
