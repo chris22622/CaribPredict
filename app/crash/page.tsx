@@ -7,6 +7,7 @@ import { fmtUsdt } from '@/lib/cp-data';
 import { multiplierAtSeconds } from '@/lib/crash';
 import { Button } from '@/components/cp/Primitives';
 import Icon, { SunDot } from '@/components/cp/Icon';
+import CrashStage from '@/components/cp/games/CrashStage';
 
 interface RoundState {
   round: {
@@ -40,6 +41,7 @@ export default function CrashPage() {
   const [myBetId, setMyBetId] = useState<string | null>(null);
   const [history, setHistory] = useState<number[]>([]);
   const [liveMult, setLiveMult] = useState(1.00);
+  const [cashedOutAt, setCashedOutAt] = useState<number | null>(null);
   const animRef = useRef<number | null>(null);
 
   // Poll state every 500ms
@@ -102,6 +104,10 @@ export default function CrashPage() {
       if (state.phase === 'cooldown') {
         setMyBetId(null);
       }
+      if (state.phase === 'pending') {
+        // new round, reset the cash-out marker so the win burst can fire again
+        setCashedOutAt(null);
+      }
     }
     if (state?.phase === 'crashed') {
       // bet rode the crash — clear it after a beat
@@ -145,6 +151,7 @@ export default function CrashPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Cashout failed');
       toast.success(`Cashed out @${data.cashoutMultiplier.toFixed(2)}× · won ${fmtUsdt(data.payoutUsdt)}`);
+      setCashedOutAt(data.cashoutMultiplier);
       setMyBetId(null);
     } catch (e: any) {
       toast.error(e.message || 'Cashout failed');
@@ -163,77 +170,19 @@ export default function CrashPage() {
       maxWidth: 1280, margin: '0 auto', padding: '24px 28px', width: '100%',
       display: 'grid', gridTemplateColumns: '1fr 380px', gap: 20, alignItems: 'start',
     }}>
-      <div style={{
-        background: 'linear-gradient(180deg, var(--cp-ink) 0%, var(--cp-ink-2) 100%)',
-        color: 'var(--cp-text-on-ink)', borderRadius: 16, padding: 24,
-        minHeight: 480, display: 'flex', flexDirection: 'column', gap: 18,
-        position: 'relative', overflow: 'hidden',
-      }}>
-        {/* Top: round info + history strip */}
-        <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-              <SunDot size={20} color="var(--cp-sun)"/>
-              <h1 style={{ margin: 0, fontFamily: 'var(--cp-serif)', fontSize: 24, fontWeight: 400, letterSpacing: '-0.01em' }}>
-                CaribCrash
-              </h1>
-            </div>
-            <div style={{ fontSize: 11.5, color: 'var(--cp-text-on-ink-3)', marginTop: 4 }}>
-              Round #{state?.round.roundNumber ?? '—'} · {phase.toUpperCase()}
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', justifyContent: 'flex-end', maxWidth: 380 }}>
-            {history.map((m, i) => (
-              <span key={i} className="cp-num" style={{
-                fontSize: 11, padding: '3px 7px', borderRadius: 6, fontWeight: 600,
-                background: m >= 2 ? 'rgba(14,124,102,0.25)' : 'rgba(210,74,58,0.25)',
-                color: m >= 2 ? '#7CE0BC' : '#FFB1A4',
-              }}>{m.toFixed(2)}×</span>
-            ))}
-          </div>
-        </header>
-
-        {/* Center: huge multiplier */}
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 10 }}>
-          <div className="cp-num" style={{
-            fontFamily: 'var(--cp-serif)', fontSize: 110, fontWeight: 400, letterSpacing: '-0.04em',
-            lineHeight: 1, color: bigColor, transition: 'color .2s',
-          }}>
-            {mult.toFixed(2)}×
-          </div>
-          {phase === 'pending' && state && (
-            <div style={{ fontSize: 14, color: 'var(--cp-text-on-ink-2)' }}>
-              Betting closes in <span className="cp-num" style={{ fontWeight: 700 }}>{Math.ceil(state.msUntilStart / 1000)}s</span>
-            </div>
-          )}
-          {phase === 'running' && (
-            <div style={{ fontSize: 13, color: 'var(--cp-text-on-ink-3)' }}>
-              Tap CASH OUT before it crashes.
-            </div>
-          )}
-          {phase === 'crashed' && state && (
-            <div style={{ fontSize: 14, color: 'var(--cp-text-on-ink-2)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-              <span><strong style={{ color: 'var(--cp-no)' }}>CRASHED</strong> at {state.round.crashMultiplier?.toFixed(2)}×</span>
-              {state.round.serverSeed && (
-                <span style={{ fontSize: 10.5, color: 'var(--cp-text-on-ink-3)', fontFamily: 'var(--cp-mono)' }}>
-                  Seed: {state.round.serverSeed.slice(0, 16)}…
-                </span>
-              )}
-            </div>
-          )}
-          {phase === 'cooldown' && (
-            <div style={{ fontSize: 13, color: 'var(--cp-text-on-ink-3)' }}>
-              Next round opening…
-            </div>
-          )}
-        </div>
-
-        {/* Bottom: live volume */}
-        <footer style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5, color: 'var(--cp-text-on-ink-3)' }}>
-          <span>{state?.betsThisRound ?? 0} bets · {fmtUsdt(state?.stakeUsdtThisRound ?? 0)} staked this round</span>
-          <span style={{ fontFamily: 'var(--cp-mono)' }}>Seed hash: {state?.round.serverSeedHash.slice(0, 10)}…</span>
-        </footer>
-      </div>
+      <CrashStage
+        phase={phase as any}
+        multiplier={mult}
+        crashAt={state?.round.crashMultiplier ?? null}
+        cashedOutAt={cashedOutAt}
+        msUntilStart={state?.msUntilStart ?? 0}
+        roundNumber={state?.round.roundNumber}
+        history={history}
+        seedHash={state?.round.serverSeedHash}
+        serverSeed={state?.round.serverSeed}
+        betsThisRound={state?.betsThisRound ?? 0}
+        stakeUsdtThisRound={state?.stakeUsdtThisRound ?? 0}
+      />
 
       <aside style={{
         background: 'var(--cp-card)', borderRadius: 14, border: '1px solid var(--cp-line)',
