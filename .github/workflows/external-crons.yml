@@ -1,0 +1,44 @@
+# Runs the minute-level cron routes that Vercel Hobby tier can't schedule
+# itself. GitHub Actions allows cron triggers down to 5-minute intervals on
+# the free runner, which is good enough for poll-deposits, crash-tick, and
+# auto-settle while CaribPredict is still on the free Vercel plan.
+#
+# To shut this off (e.g. after upgrading Vercel to Pro and putting these
+# routes back in vercel.json), disable the workflow in the repo's Actions
+# tab.
+
+name: external-crons
+
+on:
+  schedule:
+    # GitHub Actions cron — UTC. 5-minute granularity is the floor on the
+    # free runner. Crash rounds are short enough that 5 min between ticks
+    # is rough UX; upgrade to Pro for true 1-min crons.
+    - cron: '*/5 * * * *'
+  workflow_dispatch: {}
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    concurrency:
+      group: external-crons
+      cancel-in-progress: false
+    steps:
+      - name: Hit crash-tick
+        run: |
+          curl -sS -o /dev/null -w "crash-tick: %{http_code}\n" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            https://www.caribpredict.com/api/cron/crash-tick
+
+      - name: Hit poll-deposits
+        run: |
+          curl -sS -o /dev/null -w "poll-deposits: %{http_code}\n" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            https://www.caribpredict.com/api/cron/poll-deposits
+
+      - name: Hit auto-settle
+        run: |
+          curl -sS -o /dev/null -w "auto-settle: %{http_code}\n" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            https://www.caribpredict.com/api/cron/auto-settle
