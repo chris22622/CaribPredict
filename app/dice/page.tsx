@@ -309,63 +309,47 @@ export default function DicePage() {
 // ─── 3D dice ──────────────────────────────────────────────────────────────
 
 function Dice3D({ face, tumbling }: { face: 1|2|3|4|5|6; tumbling: boolean }) {
-  // Each face maps to a specific cube rotation so that the requested face
-  // ends up pointing toward the camera.
-  const facePos: Record<number, { x: number; y: number }> = {
-    1: { x: 0, y: 0 },
-    2: { x: 0, y: -90 },
-    3: { x: -90, y: 0 },
-    4: { x: 90, y: 0 },
-    5: { x: 0, y: 90 },
-    6: { x: 180, y: 0 },
-  };
-  const target = facePos[face];
-
+  // Single face that tumbles via 3D rotation; pips change rapidly while
+  // tumbling, then settle on the result. Looks like a real die throw without
+  // requiring perfect 6-face cube geometry.
   return (
     <div style={{
       width: 96, height: 96, perspective: 600,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
     }}>
       <div style={{
-        position: 'relative', width: '100%', height: '100%',
-        transformStyle: 'preserve-3d',
-        transform: tumbling
-          ? 'rotateX(720deg) rotateY(900deg)'
-          : `rotateX(${target.x}deg) rotateY(${target.y}deg)`,
-        transition: tumbling ? 'transform 0.7s cubic-bezier(.25,.8,.4,1)' : 'transform 0.55s cubic-bezier(.34,1.56,.64,1)',
-        filter: 'drop-shadow(0 12px 18px rgba(0,0,0,0.5))',
+        width: 84, height: 84,
+        background: 'linear-gradient(155deg, #F8F2E4 0%, #DCCFAF 100%)',
+        border: '1px solid rgba(0,0,0,0.15)', borderRadius: 14,
+        boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.5), inset 0 -10px 16px rgba(0,0,0,0.08), 0 12px 22px rgba(0,0,0,0.45)',
+        padding: 10,
+        display: 'grid',
+        gridTemplateColumns: 'repeat(3, 1fr)', gridTemplateRows: 'repeat(3, 1fr)',
+        gap: 4,
+        transform: tumbling ? 'rotateX(540deg) rotateY(720deg)' : 'rotateX(-12deg) rotateY(-18deg)',
+        transition: tumbling
+          ? 'transform 0.75s cubic-bezier(.34,.04,.22,1)'
+          : 'transform 0.6s cubic-bezier(.34,1.56,.64,1)',
       }}>
-        <DieFace pips={1} t="translateZ(48px)"/>
-        <DieFace pips={6} t="rotateY(180deg) translateZ(48px)"/>
-        <DieFace pips={3} t="rotateY(90deg) translateZ(48px)"/>
-        <DieFace pips={4} t="rotateY(-90deg) translateZ(48px)"/>
-        <DieFace pips={2} t="rotateX(90deg) translateZ(48px)"/>
-        <DieFace pips={5} t="rotateX(-90deg) translateZ(48px)"/>
+        <PipGrid pips={face}/>
       </div>
     </div>
   );
 }
 
-function DieFace({ pips, t }: { pips: number; t: string }) {
-  // Standard pip layout: positions on a 3x3 grid (1=top-left ... 9=bottom-right).
+function PipGrid({ pips }: { pips: number }) {
+  // Pip positions on a 3x3 grid (1=top-left ... 9=bottom-right).
   const layouts: Record<number, number[]> = {
     1: [5],
     2: [1, 9],
     3: [1, 5, 9],
     4: [1, 3, 7, 9],
     5: [1, 3, 5, 7, 9],
-    6: [1, 3, 4, 6, 7, 9],
+    6: [1, 4, 7, 3, 6, 9],   // two vertical columns
   };
   const cells = new Set(layouts[pips] || []);
   return (
-    <div style={{
-      position: 'absolute', inset: 0, transform: t,
-      background: 'linear-gradient(155deg, #F5EFE2 0%, #D9CFB3 100%)',
-      border: '1px solid rgba(0,0,0,0.15)', borderRadius: 14,
-      boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.4), inset 0 -8px 14px rgba(0,0,0,0.08)',
-      padding: 10, display: 'grid',
-      gridTemplateColumns: 'repeat(3, 1fr)', gridTemplateRows: 'repeat(3, 1fr)',
-      gap: 4,
-    }}>
+    <>
       {Array.from({ length: 9 }, (_, i) => i + 1).map(idx => (
         <div key={idx} style={{
           display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -373,12 +357,12 @@ function DieFace({ pips, t }: { pips: number; t: string }) {
           {cells.has(idx) && (
             <div style={{
               width: '70%', height: '70%', borderRadius: '50%',
-              background: 'radial-gradient(circle at 35% 35%, #6e503a, #2a1810)',
-              boxShadow: 'inset 0 1px 1.5px rgba(255,255,255,0.25), 0 1px 1px rgba(0,0,0,0.3)',
+              background: 'radial-gradient(circle at 35% 35%, #6e503a 0%, #2a1810 90%)',
+              boxShadow: 'inset 0 1px 1.5px rgba(255,255,255,0.3), 0 1px 1px rgba(0,0,0,0.35)',
             }}/>
           )}
         </div>
       ))}
-    </div>
+    </>
   );
 }
