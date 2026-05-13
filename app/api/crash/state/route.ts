@@ -13,6 +13,12 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 );
 
+// Crash state is mutable on every read (it advances rounds). Without this,
+// Vercel was caching the GET response and serving identical state for
+// minutes — rounds never visibly progressed.
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 async function settleCrashedRound(round: any) {
   // Mark crashed_at if not yet set
   if (round.status === 'running') {
