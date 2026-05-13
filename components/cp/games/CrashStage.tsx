@@ -28,6 +28,7 @@ interface CrashStageProps {
   crashAt?: number | null;       // final crash multiplier when phase === 'crashed'
   cashedOutAt?: number | null;   // multiplier at which the player cashed out (success burst trigger)
   msUntilStart?: number;         // for the pending countdown ring
+  roundStartedAtMs?: number;     // server-reported wall-clock start of the running round
   roundNumber?: number;
   history?: number[];            // recent crash multipliers (oldest → newest)
   seedHash?: string;
@@ -49,7 +50,7 @@ interface Particle {
 export default function CrashStage(props: CrashStageProps) {
   const {
     phase, multiplier, crashAt, cashedOutAt, msUntilStart = 0,
-    roundNumber, history = [], seedHash, serverSeed,
+    roundStartedAtMs, roundNumber, history = [], seedHash, serverSeed,
     betsThisRound = 0, stakeUsdtThisRound = 0,
   } = props;
 
@@ -88,9 +89,15 @@ export default function CrashStage(props: CrashStageProps) {
   useEffect(() => {
     const prev = lastPhaseRef.current;
     if (prev !== 'running' && phase === 'running') {
-      // round started — reset trail
-      trailRef.current = [];
-      startedAtRef.current = performance.now();
+      // round started — anchor trail at the server-reported start time so
+      // the curve fills the canvas even when the user joins mid-round.
+      // We back-date startedAtRef into the past by the elapsed time.
+      const wallStart = roundStartedAtMs && roundStartedAtMs > 0
+        ? roundStartedAtMs
+        : Date.now();
+      const ageMs = Math.max(0, Date.now() - wallStart);
+      startedAtRef.current = performance.now() - ageMs;
+      trailRef.current = [{ t: 0, m: 1.0 }];
     }
     if (prev !== 'crashed' && phase === 'crashed') {
       // explosion

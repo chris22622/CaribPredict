@@ -176,6 +176,7 @@ export default function CrashPage() {
         crashAt={state?.round.crashMultiplier ?? null}
         cashedOutAt={cashedOutAt}
         msUntilStart={state?.msUntilStart ?? 0}
+        roundStartedAtMs={state ? new Date(state.round.startsAt).getTime() : undefined}
         roundNumber={state?.round.roundNumber}
         history={history}
         seedHash={state?.round.serverSeedHash}
