@@ -20,6 +20,9 @@ export default function TopNav({ onSearch, balance, onWalletClick, onAvatarClick
   const router = useRouter();
   const active =
     pathname === '/' ? 'home'
+    : pathname?.startsWith('/games') || pathname?.startsWith('/crash')
+      || pathname?.startsWith('/plinko') || pathname?.startsWith('/mines')
+      || pathname?.startsWith('/dice') || pathname?.startsWith('/coinflip') ? 'games'
     : pathname?.startsWith('/profile') ? 'portfolio'
     : pathname?.startsWith('/leaderboard') ? 'activity'
     : 'home';
@@ -66,6 +69,7 @@ export default function TopNav({ onSearch, balance, onWalletClick, onAvatarClick
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
           <span className="cp-topnav-routes" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
             <RouteLink active={active === 'home'} label="Markets" onClick={() => router.push('/')}/>
+            <RouteLink active={active === 'games'} label="Games" onClick={() => router.push('/games')}/>
             <RouteLink active={active === 'portfolio'} label="Portfolio" onClick={() => router.push('/profile')}/>
             <RouteLink active={active === 'activity'} label="Activity" onClick={() => router.push('/leaderboard')}/>
           </span>

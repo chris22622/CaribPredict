@@ -15,7 +15,9 @@ export default function MobileBottomNav({ isLoggedIn, onAccountClick }: MobileBo
   const active =
     pathname === '/' ? 'home'
     : pathname.startsWith('/?live') ? 'live'
-    : pathname.startsWith('/crash') ? 'crash'
+    : pathname.startsWith('/games') || pathname.startsWith('/crash')
+      || pathname.startsWith('/plinko') || pathname.startsWith('/mines')
+      || pathname.startsWith('/dice') || pathname.startsWith('/coinflip') ? 'games'
     : pathname.startsWith('/profile') || pathname.startsWith('/portfolio') ? 'account'
     : 'home';
 
@@ -23,6 +25,7 @@ export default function MobileBottomNav({ isLoggedIn, onAccountClick }: MobileBo
     if (key === 'account' && !isLoggedIn) { onAccountClick?.(); return; }
     router.push(href);
   }
+  const active2 = active; // keep narrow type
 
   return (
     <nav className="cp-mobile-bottom-nav" style={{
@@ -37,10 +40,10 @@ export default function MobileBottomNav({ isLoggedIn, onAccountClick }: MobileBo
         display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)',
         height: 56, alignItems: 'stretch',
       }}>
-        <Item active={active === 'home'}    icon="flame"    label="Markets" onClick={() => go('/', 'home')}/>
-        <Item active={active === 'live'}    icon="sparkle"  label="Live"    onClick={() => go('/?live=1', 'live')}/>
-        <Item active={active === 'crash'}   icon="storm"    label="Crash"   onClick={() => go('/crash', 'crash')}/>
-        <Item active={active === 'account'} icon="wallet"   label="Account" onClick={() => go('/profile', 'account')}/>
+        <Item active={active2 === 'home'}    icon="gavel"    label="Markets" onClick={() => go('/', 'home')}/>
+        <Item active={active2 === 'live'}    icon="flame"    label="Live"    onClick={() => go('/?live=1', 'live')}/>
+        <Item active={active2 === 'games'}   icon="sparkle"  label="Games"   onClick={() => go('/games', 'games')}/>
+        <Item active={active2 === 'account'} icon="wallet"   label="Account" onClick={() => go('/profile', 'account')}/>
       </div>
     </nav>
   );
