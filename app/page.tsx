@@ -14,6 +14,7 @@ import { SunDot } from '@/components/cp/Icon';
 import Icon from '@/components/cp/Icon';
 import LiveNow from '@/components/cp/LiveNow';
 import LiveFeed from '@/components/cp/LiveFeed';
+import QuickGames from '@/components/cp/QuickGames';
 
 export default function HomePage() {
   const [markets, setMarkets] = useState<CpMarket[]>([]);
@@ -101,6 +102,7 @@ export default function HomePage() {
       <main className="cp-page-pad" style={{ maxWidth: 1400, margin: '0 auto', padding: '28px', width: '100%' }}>
         <Hero/>
         <LiveNow/>
+        <QuickGames/>
         <LiveFeed/>
 
         <section style={{ marginTop: 28 }}>
