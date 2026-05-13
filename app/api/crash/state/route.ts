@@ -60,7 +60,7 @@ async function maybeStartNextRound(prev: any | null) {
   const bettingOpens = new Date();
   const starts = new Date(now + BETTING_PHASE_MS);
   const { seed, hash } = makeServerSeed();
-  const { data: inserted } = await supabase.from('crash_rounds').insert({
+  const { data: inserted, error: insertError } = await supabase.from('crash_rounds').insert({
     server_seed_hash: hash,
     server_seed: null,
     client_seed: null,
@@ -69,7 +69,10 @@ async function maybeStartNextRound(prev: any | null) {
     betting_opens_at: bettingOpens.toISOString(),
     starts_at: starts.toISOString(),
   }).select().single();
-  if (!inserted) return prev;
+  if (insertError || !inserted) {
+    console.error('[crash] maybeStartNextRound insert failed:', insertError);
+    return { ...(prev || {}), _insertError: insertError?.message || 'insert returned null' };
+  }
   // Compute the real crash multiplier using round_number as salt.
   const m = crashMultiplier(seed, inserted.round_number);
   await supabase.from('crash_rounds').update({
@@ -111,6 +114,9 @@ export async function GET(req: NextRequest) {
 
     if (!round) {
       return NextResponse.json({ error: 'No round available' }, { status: 503 });
+    }
+    if (round._insertError) {
+      return NextResponse.json({ error: 'next round insert failed', detail: round._insertError }, { status: 500 });
     }
 
     const state = computeRoundState(
