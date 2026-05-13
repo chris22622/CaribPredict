@@ -5,18 +5,6 @@
       "schedule": "0 8 * * *"
     },
     {
-      "path": "/api/cron/poll-deposits",
-      "schedule": "* * * * *"
-    },
-    {
-      "path": "/api/cron/auto-settle",
-      "schedule": "* * * * *"
-    },
-    {
-      "path": "/api/cron/crash-tick",
-      "schedule": "* * * * *"
-    },
-    {
       "path": "/api/cron/weekly-rakeback",
       "schedule": "0 6 * * 1"
     }
