@@ -157,3 +157,59 @@ export function instantPayoutCents(stakeCents: number, mult: number): number {
 export function sha256Hex(s: string): string {
   return createHash('sha256').update(s).digest('hex');
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// Plinko — ball drops through N rows of pegs, bouncing L/R at each row,
+// lands in one of N+1 bins. Each bin has a multiplier. Probabilities are
+// binomial: middle bins very likely, edges very rare but high-multiplier.
+//
+// Multiplier tables (8 rows, ~1% house edge — industry standard):
+//   Low:  [5.6, 2.1, 1.1, 1.0, 0.5, 1.0, 1.1, 2.1, 5.6]
+//   Med:  [13,  3,   1.3, 0.7, 0.4, 0.7, 1.3, 3,  13]
+//   High: [29,  4,   1.5, 0.3, 0.2, 0.3, 1.5, 4,  29]
+// ─────────────────────────────────────────────────────────────────────────
+
+export type PlinkoRisk = 'low' | 'medium' | 'high';
+export const PLINKO_ROWS = [8, 12, 16] as const;
+
+const MULTIPLIERS_8: Record<PlinkoRisk, number[]> = {
+  low:    [5.6, 2.1, 1.1, 1.0, 0.5, 1.0, 1.1, 2.1, 5.6],
+  medium: [13,  3,   1.3, 0.7, 0.4, 0.7, 1.3, 3,   13],
+  high:   [29,  4,   1.5, 0.3, 0.2, 0.3, 1.5, 4,   29],
+};
+const MULTIPLIERS_12: Record<PlinkoRisk, number[]> = {
+  low:    [10,  3,   1.6, 1.4, 1.1, 1.0, 0.5, 1.0, 1.1, 1.4, 1.6, 3,   10],
+  medium: [33,  11,  4,   2,   1.1, 0.6, 0.3, 0.6, 1.1, 2,   4,   11,  33],
+  high:   [170, 24,  8.1, 2,   0.7, 0.2, 0.2, 0.2, 0.7, 2,   8.1, 24,  170],
+};
+const MULTIPLIERS_16: Record<PlinkoRisk, number[]> = {
+  low:    [16, 9,   2,   1.4, 1.4, 1.2, 1.1, 1.0, 0.5, 1.0, 1.1, 1.2, 1.4, 1.4, 2,   9,   16],
+  medium: [110,41,  10,  5,   3,   1.5, 1.0, 0.5, 0.3, 0.5, 1.0, 1.5, 3,   5,   10,  41,  110],
+  high:   [1000,130,26,  9,   4,   2,   0.2, 0.2, 0.2, 0.2, 0.2, 2,   4,   9,   26,  130, 1000],
+};
+
+export function plinkoMultipliers(rows: number, risk: PlinkoRisk): number[] {
+  if (rows === 8)  return MULTIPLIERS_8[risk];
+  if (rows === 12) return MULTIPLIERS_12[risk];
+  if (rows === 16) return MULTIPLIERS_16[risk];
+  return MULTIPLIERS_8[risk];
+}
+
+export interface PlinkoResult {
+  /** One per row: 'L' = bounced left, 'R' = bounced right. */
+  path: ('L' | 'R')[];
+  /** Final bin index, 0..rows. */
+  bin: number;
+  /** Multiplier paid out at that bin. */
+  multiplier: number;
+}
+
+export function dropPlinko(pf: ProvablyFair, rows: number, risk: PlinkoRisk): PlinkoResult {
+  const rolls = uniformRolls(pf.server_seed, pf.client_seed, pf.nonce, rows);
+  const path: ('L' | 'R')[] = rolls.map(u => (u < 0.5 ? 'L' : 'R'));
+  // Bin = number of right bounces (0..rows)
+  const bin = path.filter(d => d === 'R').length;
+  const mults = plinkoMultipliers(rows, risk);
+  const multiplier = mults[bin];
+  return { path, bin, multiplier };
+}
