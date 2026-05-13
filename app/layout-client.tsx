@@ -13,6 +13,7 @@ import CookieAgeBanner from '@/components/cp/CookieAgeBanner';
 import PWAInstallPrompt from '@/components/cp/PWAInstallPrompt';
 import LiveChat from '@/components/cp/LiveChat';
 import BigWinToast from '@/components/cp/BigWinToast';
+import OnboardingModal from '@/components/cp/OnboardingModal';
 import { toCpMarket, CpMarket } from '@/lib/cp-data';
 import { Market, MarketOption } from '@/lib/types';
 
@@ -186,6 +187,7 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
       <PWAInstallPrompt/>
       <LiveChat/>
       <BigWinToast/>
+      <OnboardingModal/>
 
       {user && (
         <DepositModal
