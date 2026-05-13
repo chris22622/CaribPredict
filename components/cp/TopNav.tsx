@@ -23,6 +23,7 @@ export default function TopNav({ onSearch, balance, onWalletClick, onAvatarClick
     : pathname?.startsWith('/games') || pathname?.startsWith('/crash')
       || pathname?.startsWith('/plinko') || pathname?.startsWith('/mines')
       || pathname?.startsWith('/dice') || pathname?.startsWith('/coinflip') ? 'games'
+    : pathname?.startsWith('/vip') ? 'vip'
     : pathname?.startsWith('/profile') ? 'portfolio'
     : pathname?.startsWith('/leaderboard') ? 'activity'
     : 'home';
@@ -70,6 +71,7 @@ export default function TopNav({ onSearch, balance, onWalletClick, onAvatarClick
           <span className="cp-topnav-routes" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
             <RouteLink active={active === 'home'} label="Markets" onClick={() => router.push('/')}/>
             <RouteLink active={active === 'games'} label="Games" onClick={() => router.push('/games')}/>
+            <RouteLink active={active === 'vip'} label="VIP" onClick={() => router.push('/vip')}/>
             <RouteLink active={active === 'portfolio'} label="Portfolio" onClick={() => router.push('/profile')}/>
             <RouteLink active={active === 'activity'} label="Activity" onClick={() => router.push('/leaderboard')}/>
           </span>
