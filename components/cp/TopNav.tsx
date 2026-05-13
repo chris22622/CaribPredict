@@ -112,7 +112,9 @@ function RouteLink({ label, active, onClick }: { label: string; active?: boolean
 }
 
 function BalanceChip({ balanceSats }: { balanceSats: number }) {
-  const usd = satsToUsd(balanceSats);
+  // `balanceSats` is named for legacy reasons but is now the user's
+  // balance_cents — the field every game writes to. Cents → USDT is just /100.
+  const usd = balanceSats / 100;
   return (
     <div style={{
       display: 'inline-flex', alignItems: 'center', gap: 8,

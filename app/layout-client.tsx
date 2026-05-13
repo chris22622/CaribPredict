@@ -147,8 +147,13 @@ export default function LayoutClient({ children }: { children: React.ReactNode }
   }
 
   async function loadBalance(uid: string) {
-    const { data } = await supabase.from('users').select('balance_satoshis').eq('id', uid).single();
-    if (data) setBalance(data.balance_satoshis);
+    // All games and the bet/cashout/reveal routes update `balance_cents`. The
+    // old `balance_satoshis` column is left over from the Polymarket-era code
+    // and never gets touched by gameplay — reading it makes the top-nav
+    // balance look frozen. Read cents and treat them as the source of truth.
+    const { data } = await supabase.from('users')
+      .select('balance_cents').eq('id', uid).single();
+    if (data) setBalance(data.balance_cents || 0);
   }
 
   function handleWalletClick() { user ? setWalletOpen(true) : setAuthOpen(true); }

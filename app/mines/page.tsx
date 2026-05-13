@@ -18,7 +18,7 @@ interface GameState {
 }
 
 export default function MinesPage() {
-  const { user } = useCp();
+  const { user, refreshBalance } = useCp();
   const [stake, setStake] = useState<number>(5);
   const [minesCount, setMinesCount] = useState<number>(3);
   const [game, setGame] = useState<GameState | null>(null);
@@ -70,6 +70,7 @@ export default function MinesPage() {
         multiplier: d.multiplierAfterRevealed,
         revealed: [], mineHits: [], hitMine: false,
       });
+      refreshBalance();   // stake just got debited
     } catch (e: any) {
       toast.error(e.message || 'Failed');
     } finally { setBusy(false); }
@@ -95,6 +96,7 @@ export default function MinesPage() {
         if (d.autoCashedOut) {
           toast.success(`All safe tiles revealed — auto cashout ${fmtUsdt(d.payoutUsdt)}`);
           setGame(null);
+          refreshBalance();
         }
       }
     } catch (e: any) {
@@ -114,6 +116,7 @@ export default function MinesPage() {
       if (!r.ok) throw new Error(d.error || 'Cashout failed');
       toast.success(`Cashed out @${d.multiplier.toFixed(2)}× — won ${fmtUsdt(d.payoutUsdt)}`);
       setGame(null);
+      refreshBalance();
     } catch (e: any) {
       toast.error(e.message || 'Failed');
     } finally { setBusy(false); }

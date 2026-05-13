@@ -21,7 +21,7 @@ interface PendingDrop {
 }
 
 export default function PlinkoPage() {
-  const { user } = useCp();
+  const { user, refreshBalance } = useCp();
   const [stake, setStake] = useState<number>(5);
   const [rows, setRows] = useState<number>(8);
   const [risk, setRisk] = useState<PlinkoRisk>('medium');
@@ -48,6 +48,10 @@ export default function PlinkoPage() {
         multiplier: d.multiplier, payoutUsdt: d.payoutUsdt,
         stake,
       });
+      // The bet is settled atomically on the server (debit + credit). Show
+      // the post-bet balance immediately even though the ball is still
+      // dropping visually.
+      refreshBalance();
     } catch (e: any) {
       toast.error(e.message || 'Failed');
       setBusy(false);
@@ -59,6 +63,7 @@ export default function PlinkoPage() {
     else if (multiplier >= 1) toast(`Bin ${bin}: ${multiplier}× — won ${fmtUsdt(payoutUsdt)}`);
     else toast.error(`Bin ${bin}: ${multiplier}× — kept ${fmtUsdt(payoutUsdt)}`);
     setBusy(false);
+    refreshBalance();
   }
 
   return (

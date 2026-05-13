@@ -32,7 +32,7 @@ interface RoundState {
 }
 
 export default function CrashPage() {
-  const { user } = useCp();
+  const { user, refreshBalance } = useCp();
   const [state, setState] = useState<RoundState | null>(null);
   const [stake, setStake] = useState<number>(5);
   const [autoCash, setAutoCash] = useState<number | null>(2.0);
@@ -110,8 +110,11 @@ export default function CrashPage() {
       }
     }
     if (state?.phase === 'crashed') {
-      // bet rode the crash — clear it after a beat
+      // bet rode the crash — clear it after a beat. Also pull a fresh
+      // balance because auto-cashouts and busts both settle server-side
+      // when the round crashes.
       setTimeout(() => setMyBetId(null), 800);
+      refreshBalance();
     }
   }, [state?.phase]);
 
@@ -133,6 +136,7 @@ export default function CrashPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Bet failed');
       setMyBetId(data.betId);
+      refreshBalance();
       toast.success(`Bet placed: ${fmtUsdt(stake)}${autoCash ? ` · auto @${autoCash.toFixed(2)}×` : ''}`);
     } catch (e: any) {
       toast.error(e.message || 'Bet failed');
@@ -153,6 +157,7 @@ export default function CrashPage() {
       toast.success(`Cashed out @${data.cashoutMultiplier.toFixed(2)}× · won ${fmtUsdt(data.payoutUsdt)}`);
       setCashedOutAt(data.cashoutMultiplier);
       setMyBetId(null);
+      refreshBalance();
     } catch (e: any) {
       toast.error(e.message || 'Cashout failed');
     } finally { setCashingOut(false); }

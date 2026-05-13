@@ -15,7 +15,7 @@ import { getServiceSupabase } from '@/lib/supabase';
 const TEST_EMAIL = 'dev-test@caribpredict.com';
 const TEST_USERNAME = 'devtester';
 const TEST_BALANCE_SATS = 1_000_000_000;
-const TEST_BALANCE_CENTS = 5000;
+const TEST_BALANCE_CENTS = 1_000_000;   // 10,000 USDT play money
 
 export const dynamic = 'force-dynamic';
 
@@ -64,7 +64,7 @@ export async function GET(req: NextRequest) {
   // 2. Ensure public.users row + top up play balance.
   try {
     const { data: existingRow } = await admin
-      .from('users').select('id, balance_satoshis')
+      .from('users').select('id, balance_cents')
       .eq('id', userId).maybeSingle();
     if (!existingRow) {
       await admin.from('users').insert({
@@ -73,7 +73,9 @@ export async function GET(req: NextRequest) {
         balance_satoshis: TEST_BALANCE_SATS,
         balance_cents: TEST_BALANCE_CENTS,
       });
-    } else if ((existingRow.balance_satoshis || 0) < TEST_BALANCE_SATS / 10) {
+    } else if ((existingRow.balance_cents || 0) < TEST_BALANCE_CENTS / 10) {
+      // cents (not sats) is what the games burn through, so gate the top-up
+      // on the same field. Re-visit the dev URL any time to refill.
       await admin.from('users')
         .update({ balance_satoshis: TEST_BALANCE_SATS, balance_cents: TEST_BALANCE_CENTS })
         .eq('id', userId);

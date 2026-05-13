@@ -9,7 +9,7 @@ import { Button } from '@/components/cp/Primitives';
 type Side = 'HEADS' | 'TAILS';
 
 export default function CoinFlipPage() {
-  const { user } = useCp();
+  const { user, refreshBalance } = useCp();
   const [pick, setPick] = useState<Side>('HEADS');
   const [stake, setStake] = useState<number>(5);
   const [last, setLast] = useState<any>(null);
@@ -39,6 +39,7 @@ export default function CoinFlipPage() {
       setFlipping(false);
       setCoinSide(d.side as Side);
       setLast(d);
+      refreshBalance();
 
       setTimeout(() => {
         if (d.won) toast.success(`${d.side} — won ${fmtUsdt(d.payoutUsdt)}`);

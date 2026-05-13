@@ -7,7 +7,7 @@ import { fmtUsdt } from '@/lib/cp-data';
 import { Button } from '@/components/cp/Primitives';
 
 export default function DicePage() {
-  const { user } = useCp();
+  const { user, refreshBalance } = useCp();
   const [stake, setStake] = useState<number>(5);
   const [target, setTarget] = useState<number>(50);
   const [direction, setDirection] = useState<'over' | 'under'>('over');
@@ -66,6 +66,7 @@ export default function DicePage() {
       requestAnimationFrame(animMarker);
 
       setLast(d);
+      refreshBalance();
       // Show the toast slightly after the animation kicks off for drama.
       setTimeout(() => {
         if (d.won) toast.success(`Rolled ${d.roll.toFixed(2)} — won ${fmtUsdt(d.payoutUsdt)}`);
