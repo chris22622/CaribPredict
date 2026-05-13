@@ -9,6 +9,7 @@ import {
 } from '@/lib/cp-data';
 import { SunDot } from '@/components/cp/Icon';
 import { Thumb, Button, Avatar } from '@/components/cp/Primitives';
+import { useCp } from '@/app/layout-client';
 
 interface EnrichedPosition {
   position: Position;
@@ -23,6 +24,7 @@ interface EnrichedPosition {
 }
 
 export default function PortfolioPage() {
+  const { user: authUser, loading: authLoading, openAuth } = useCp();
   const [userData, setUserData] = useState<any>(null);
   const [positions, setPositions] = useState<EnrichedPosition[]>([]);
   const [trades, setTrades] = useState<{ trade: Trade; market: CpMarket }[]>([]);
@@ -30,7 +32,11 @@ export default function PortfolioPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    if (authLoading) return;          // wait for layout to resolve session
+    if (!authUser) { setLoading(false); return; }
+    load();
+  }, [authUser, authLoading]);
 
   async function load() {
     setLoading(true); setError('');
@@ -84,6 +90,35 @@ export default function PortfolioPage() {
     return { valueUsd, pnlUsd, cashSats, cashUsd };
   }, [positions, userData]);
 
+  if (!authLoading && !authUser) {
+    return (
+      <main style={{ maxWidth: 520, margin: '0 auto', padding: '80px 24px', textAlign: 'center' }}>
+        <div style={{
+          background: 'var(--cp-card)', border: '1px solid var(--cp-line)',
+          borderRadius: 16, padding: '40px 28px', boxShadow: 'var(--cp-shadow-card)',
+        }}>
+          <div style={{ display: 'inline-flex', marginBottom: 12 }}>
+            <SunDot size={36} color="var(--cp-sun)"/>
+          </div>
+          <h1 style={{
+            margin: 0, fontFamily: 'var(--cp-serif)', fontWeight: 400,
+            fontSize: 26, letterSpacing: '-0.01em', color: 'var(--cp-text)',
+          }}>
+            Sign in to see your portfolio
+          </h1>
+          <p style={{ margin: '10px 0 22px', color: 'var(--cp-text-3)', fontSize: 14, lineHeight: 1.55 }}>
+            Track your positions, trade history, referrals and wagering progress in one place.
+          </p>
+          <Button kind="sun" size="md" onClick={openAuth}>Sign in or create account</Button>
+          <div style={{ marginTop: 14, fontSize: 12.5 }}>
+            <Link href="/" style={{ color: 'var(--cp-text-3)', textDecoration: 'none' }}>
+              ← Back to markets
+            </Link>
+          </div>
+        </div>
+      </main>
+    );
+  }
   if (loading) {
     return (
       <main style={{ maxWidth: 1280, margin: '0 auto', padding: '60px 28px', textAlign: 'center', color: 'var(--cp-text-3)' }}>
