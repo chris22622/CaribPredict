@@ -12,6 +12,8 @@ import CategoryStrip from '@/components/cp/CategoryStrip';
 import { Button, Chip } from '@/components/cp/Primitives';
 import { SunDot } from '@/components/cp/Icon';
 import Icon from '@/components/cp/Icon';
+import LiveNow from '@/components/cp/LiveNow';
+import LiveFeed from '@/components/cp/LiveFeed';
 
 export default function HomePage() {
   const [markets, setMarkets] = useState<CpMarket[]>([]);
@@ -98,6 +100,8 @@ export default function HomePage() {
 
       <main className="cp-page-pad" style={{ maxWidth: 1400, margin: '0 auto', padding: '28px', width: '100%' }}>
         <Hero/>
+        <LiveNow/>
+        <LiveFeed/>
 
         <section style={{ marginTop: 28 }}>
           <SectionHead title="Trending across the region"

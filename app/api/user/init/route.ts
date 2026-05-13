@@ -8,6 +8,7 @@ import { createClient } from '@supabase/supabase-js';
 import {
   WELCOME_BONUS_CENTS, WELCOME_BONUS_WAGERING_MULT, isLikelyReferralCode,
 } from '@/lib/referrals';
+import { sendEmail, welcomeBonusEmail } from '@/lib/email';
 
 // Daily login bonus schedule (cents). Resets if user misses a day.
 const DAILY_BONUS_CENTS: Record<number, number> = {
@@ -86,6 +87,20 @@ export async function POST(req: NextRequest) {
         reason: 'welcome',
         wagering_multiplier: WELCOME_BONUS_WAGERING_MULT,
       });
+      // Email receipt for the welcome bonus (best-effort)
+      try {
+        const { data: authUser } = await supabase.auth.admin.getUserById(userId);
+        const email = authUser?.user?.email;
+        if (email) {
+          await sendEmail({
+            userId, toEmail: email,
+            template: 'welcome-bonus',
+            subject: `Welcome bonus credited · ${(WELCOME_BONUS_CENTS / 100).toFixed(2)} USDT free play`,
+            html: welcomeBonusEmail(WELCOME_BONUS_CENTS / 100),
+            payload: { amountCents: WELCOME_BONUS_CENTS },
+          });
+        }
+      } catch {/* ignore */}
     }
 
     // ──────────────────────────────────────────────
