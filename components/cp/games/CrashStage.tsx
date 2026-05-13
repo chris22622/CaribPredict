@@ -432,7 +432,9 @@ export default function CrashStage(props: CrashStageProps) {
             transition: 'color .25s, text-shadow .25s',
             animation: phase === 'running' ? 'crashPulse 1.4s ease-in-out infinite' : undefined,
           }}>
-            {phase === 'pending' ? '1.00×' : multiplier.toFixed(2) + '×'}
+            {phase === 'pending' ? '1.00×'
+              : phase === 'crashed' ? `${(crashAt ?? multiplier).toFixed(2)}×`
+              : multiplier.toFixed(2) + '×'}
           </div>
           {phase === 'running' && (
             <div style={{
