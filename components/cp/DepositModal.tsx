@@ -24,19 +24,48 @@ interface Intent {
   instructions: string[];
 }
 
+type Mode = 'crypto' | 'card';
+type Step = 'amount' | 'crypto-send' | 'card-launch';
+
+const TRANSAK_API_KEY = process.env.NEXT_PUBLIC_TRANSAK_API_KEY || '';
+const TRANSAK_HOST = process.env.NEXT_PUBLIC_TRANSAK_ENV === 'production'
+  ? 'https://global.transak.com'
+  : 'https://global-stg.transak.com';
+
 export default function DepositModal({ isOpen, onClose, userId }: DepositModalProps) {
-  const [step, setStep] = useState<'amount' | 'send'>('amount');
+  const [mode, setMode] = useState<Mode>('crypto');
+  const [step, setStep] = useState<Step>('amount');
   const [amount, setAmount] = useState<number>(20);
   const [submitting, setSubmitting] = useState(false);
   const [intent, setIntent] = useState<Intent | null>(null);
 
   useEffect(() => {
-    if (!isOpen) { setStep('amount'); setIntent(null); setAmount(20); }
+    if (!isOpen) {
+      setMode('crypto');
+      setStep('amount');
+      setIntent(null);
+      setAmount(20);
+    }
   }, [isOpen]);
 
   if (!isOpen) return null;
 
-  async function createIntent() {
+  function buildTransakUrl(i: Intent): string {
+    const params = new URLSearchParams({
+      apiKey: TRANSAK_API_KEY,
+      cryptoCurrencyCode: 'USDT',
+      network: 'tron',
+      walletAddress: i.address,
+      cryptoAmount: i.sendExactlyUsdt.toFixed(4),
+      disableWalletAddressForm: 'true',
+      fiatCurrency: 'USD',
+      themeColor: '0B1F2E',
+      redirectURL: typeof window !== 'undefined' ? window.location.origin + '/profile?deposit=processing' : '',
+    });
+    return `${TRANSAK_HOST}/?${params.toString()}`;
+  }
+
+  async function generateIntent(): Promise<Intent | null> {
     setSubmitting(true);
     try {
       const res = await fetch('/api/deposit/address', {
@@ -47,10 +76,31 @@ export default function DepositModal({ isOpen, onClose, userId }: DepositModalPr
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to start deposit');
       setIntent(data);
-      setStep('send');
+      return data as Intent;
     } catch (e: any) {
       toast.error(e.message || 'Could not start deposit');
+      return null;
     } finally { setSubmitting(false); }
+  }
+
+  async function continueCrypto() {
+    const i = await generateIntent();
+    if (i) setStep('crypto-send');
+  }
+
+  async function continueCard() {
+    if (!TRANSAK_API_KEY) {
+      toast.error('Card deposits are being configured. Use the Crypto wallet tab for now.');
+      return;
+    }
+    const i = await generateIntent();
+    if (!i) return;
+    setStep('card-launch');
+    const url = buildTransakUrl(i);
+    // Open Transak in a new tab. The user completes KYC + card payment;
+    // the USDT lands at our master wallet with the tagged amount; our
+    // poll-deposits cron credits the balance.
+    window.open(url, '_blank', 'noopener,noreferrer,width=500,height=720');
   }
 
   function copy(value: string, label: string) {
@@ -65,7 +115,7 @@ export default function DepositModal({ isOpen, onClose, userId }: DepositModalPr
       padding: 16, zIndex: 200,
     }}>
       <div onClick={e => e.stopPropagation()} style={{
-        width: 460, maxWidth: 'calc(100% - 16px)',
+        width: 480, maxWidth: 'calc(100% - 16px)',
         background: 'var(--cp-card)', borderRadius: 14,
         boxShadow: 'var(--cp-shadow-pop)', overflow: 'hidden',
         border: '1px solid var(--cp-line)',
@@ -92,10 +142,27 @@ export default function DepositModal({ isOpen, onClose, userId }: DepositModalPr
 
         {step === 'amount' && (
           <div style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {/* Tabs */}
+            <div style={{
+              display: 'grid', gridTemplateColumns: '1fr 1fr',
+              background: 'var(--cp-page-2)', borderRadius: 8, padding: 3,
+            }}>
+              {(['crypto', 'card'] as const).map(m => (
+                <button key={m} onClick={() => setMode(m)} style={{
+                  height: 36, borderRadius: 6, border: 0, cursor: 'pointer',
+                  background: mode === m ? 'var(--cp-card)' : 'transparent',
+                  color: mode === m ? 'var(--cp-text)' : 'var(--cp-text-3)',
+                  fontWeight: 600, fontSize: 13,
+                  boxShadow: mode === m ? '0 1px 2px rgba(20,24,31,.08)' : 'none',
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                }}>
+                  {m === 'crypto' ? <><Icon name="wallet" size={13}/>Crypto wallet</> : <><Icon name="plus" size={13}/>Buy with card</>}
+                </button>
+              ))}
+            </div>
+
             <div>
-              <label style={{
-                fontSize: 11.5, color: 'var(--cp-text-3)', textTransform: 'uppercase', letterSpacing: '0.05em',
-              }}>Amount</label>
+              <label style={{ fontSize: 11.5, color: 'var(--cp-text-3)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Amount</label>
               <div style={{
                 marginTop: 6, display: 'flex', alignItems: 'center', gap: 6,
                 background: 'var(--cp-card-sub)', borderRadius: 10,
@@ -124,22 +191,49 @@ export default function DepositModal({ isOpen, onClose, userId }: DepositModalPr
                 ))}
               </div>
             </div>
-            <div style={{
-              padding: 12, borderRadius: 10,
-              background: 'var(--cp-card-sub)', border: '1px solid var(--cp-line)',
-              fontSize: 12.5, color: 'var(--cp-text-2)', lineHeight: 1.5,
-            }}>
-              Minimum deposit <span className="cp-num" style={{ fontWeight: 600 }}>5 USDT</span>.
-              We&rsquo;ll show you the exact amount to send including a unique decimal
-              tag that identifies your deposit.
-            </div>
-            <Button kind="sun" size="lg" full onClick={createIntent} disabled={submitting || amount < 5}>
-              {submitting ? 'Generating address…' : `Continue · ${fmtUsdt(amount)}`}
+
+            {mode === 'crypto' && (
+              <div style={{
+                padding: 12, borderRadius: 10,
+                background: 'var(--cp-card-sub)', border: '1px solid var(--cp-line)',
+                fontSize: 12.5, color: 'var(--cp-text-2)', lineHeight: 1.5,
+              }}>
+                Send USDT TRC-20 from any wallet (TronLink, Trust, Binance, Bybit).
+                Minimum <strong className="cp-num">5 USDT</strong>. Confirmation usually within 60s.
+              </div>
+            )}
+            {mode === 'card' && (
+              <div style={{
+                padding: 12, borderRadius: 10,
+                background: 'var(--cp-sun-soft)', border: '1px solid var(--cp-sun)',
+                fontSize: 12.5, color: 'var(--cp-text-2)', lineHeight: 1.5,
+              }}>
+                Pay with Visa, Mastercard, Apple Pay, or Google Pay via Transak.
+                KYC handled by them. USDT lands in your CaribPredict balance in
+                5–15 minutes after card approval. Min <strong className="cp-num">15 USDT</strong>.
+                {!TRANSAK_API_KEY && (
+                  <div style={{ marginTop: 8, color: 'var(--cp-no-ink)', fontWeight: 600 }}>
+                    Card flow is being configured. Use the Crypto wallet tab for now.
+                  </div>
+                )}
+              </div>
+            )}
+
+            <Button
+              kind="sun" size="lg" full
+              onClick={mode === 'crypto' ? continueCrypto : continueCard}
+              disabled={submitting || amount < (mode === 'card' ? 15 : 5)}
+            >
+              {submitting
+                ? 'Generating…'
+                : mode === 'crypto'
+                ? `Continue · ${fmtUsdt(amount)} via wallet`
+                : `Continue · ${fmtUsdt(amount)} with card`}
             </Button>
           </div>
         )}
 
-        {step === 'send' && intent && (
+        {step === 'crypto-send' && intent && (
           <div style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div style={{
               padding: 14, borderRadius: 10,
@@ -165,23 +259,55 @@ export default function DepositModal({ isOpen, onClose, userId }: DepositModalPr
             <a
               href={`https://tronscan.org/#/address/${intent.address}`}
               target="_blank" rel="noopener noreferrer"
-              style={{
-                fontSize: 12, color: 'var(--cp-yes-ink)', textDecoration: 'none', fontWeight: 600,
-              }}
+              style={{ fontSize: 12, color: 'var(--cp-yes-ink)', textDecoration: 'none', fontWeight: 600 }}
             >View wallet on TronScan →</a>
-
-            <div style={{
-              padding: 12, borderRadius: 10, background: 'var(--cp-card-sub)',
-              border: '1px solid var(--cp-line)', fontSize: 12.5, color: 'var(--cp-text-2)', lineHeight: 1.5,
-            }}>
-              {intent.instructions.map((line, i) => (
-                <div key={i} style={{ marginTop: i ? 6 : 0 }}>{line}</div>
-              ))}
-            </div>
 
             <div style={{ display: 'flex', gap: 8 }}>
               <Button kind="outline" full onClick={() => setStep('amount')}>Change amount</Button>
               <Button kind="primary" full onClick={onClose}>I&rsquo;ve sent it</Button>
+            </div>
+          </div>
+        )}
+
+        {step === 'card-launch' && intent && (
+          <div style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div style={{
+              padding: 14, borderRadius: 10,
+              background: 'var(--cp-sun-soft)', border: '1px solid var(--cp-sun)',
+              fontSize: 13, color: 'var(--cp-text)',
+            }}>
+              <div style={{ fontWeight: 600, marginBottom: 4 }}>Complete your card payment in the popup</div>
+              <div className="cp-num" style={{ fontFamily: 'var(--cp-serif)', fontSize: 28, fontWeight: 400 }}>
+                {intent.sendExactlyUsdt.toFixed(4)} USDT
+              </div>
+              <div style={{ fontSize: 11.5, color: 'var(--cp-text-3)', marginTop: 4 }}>
+                Transak opened in a new tab. Don&rsquo;t close it until you finish.
+                Once your card clears, your balance updates within a few minutes.
+              </div>
+            </div>
+
+            <button
+              onClick={() => window.open(buildTransakUrl(intent), '_blank', 'noopener,noreferrer,width=500,height=720')}
+              style={{
+                height: 44, borderRadius: 10, border: 0, cursor: 'pointer',
+                background: 'var(--cp-ink)', color: 'var(--cp-text-on-ink)',
+                fontWeight: 700, fontSize: 14,
+              }}
+            >Reopen card window</button>
+
+            <div style={{
+              padding: 10, borderRadius: 10, background: 'var(--cp-card-sub)',
+              fontSize: 11.5, color: 'var(--cp-text-3)', lineHeight: 1.55,
+            }}>
+              We never see your card. Transak handles KYC and the card processor.
+              The USDT they purchase is sent directly to our deposit address with
+              your unique tag (<span className="cp-num">{String(intent.tag).padStart(4, '0')}</span>)
+              so we know to credit you.
+            </div>
+
+            <div style={{ display: 'flex', gap: 8 }}>
+              <Button kind="outline" full onClick={() => setStep('amount')}>Change amount</Button>
+              <Button kind="primary" full onClick={onClose}>Close</Button>
             </div>
           </div>
         )}
